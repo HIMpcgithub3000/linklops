@@ -35,7 +35,7 @@ import sys
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, ValidationError
+from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Anchored to this file, not the process cwd. Booting from a different
@@ -179,7 +179,16 @@ class Settings(BaseSettings):
     # MONGO_URI fires nothing here. Key parity is what guards them until the
     # module that makes them required arrives.
     MONGODB_URI: str = ""
-    REDIS_URL: str = ""
+
+    # Promoted out of the placeholder block when Redis went live in the
+    # Debugging skill, and this is where the promotion should have happened.
+    # As `str = ""` it was documented in the contract -- so a MISSING key was
+    # caught by key parity -- but an EMPTY one passed every check and failed
+    # later at redis.from_url(""), which is the exact "a bare required str
+    # accepts an empty value" trap already written down for DATABASE_URL two
+    # modules ago and not applied here. RedisDsn makes absence, emptiness and
+    # a wrong-scheme URL all fatal at import.
+    REDIS_URL: RedisDsn
     JWT_SECRET: str = ""
     API_KEY_A: str = ""
     API_KEY_B: str = ""

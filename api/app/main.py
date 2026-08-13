@@ -78,6 +78,31 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     global _previous_sigterm
     _previous_sigterm = signal.getsignal(signal.SIGTERM)
     signal.signal(signal.SIGTERM, _begin_shutdown)
+
+    # One startup line naming what this process believes it is. Added because a
+    # checklist asked whether the logs show the environment and the honest answer
+    # was no -- every line until now was request-scoped, so a container that
+    # never received a request said nothing at all about itself.
+    #
+    # The field list is an allowlist, and the omissions are the point: no
+    # DATABASE_URL, no REDIS_URL, no secret of any kind. Same reasoning as
+    # ECHO_SAFE in app/config.py -- default-deny, because the cost of the two
+    # mistakes is wildly asymmetric. What is here is what an on-call engineer
+    # needs to answer "is this container the one I think it is": which
+    # environment it was configured as, which version, and where it is listening.
+    log.info(
+        "service starting",
+        extra={
+            "environment": settings.ENVIRONMENT,
+            "version": app.version,
+            # The CONFIGURED port, which is not necessarily the bound one: the
+            # container CMD passes ${PORT} to uvicorn so they agree there, but a
+            # local run with --port overrides it and this field would then be
+            # confidently wrong. Named for what it actually knows.
+            "configured_port": settings.PORT,
+            "log_level": settings.LOG_LEVEL,
+        },
+    )
     yield
 
 
