@@ -149,14 +149,16 @@ def find_drift(conn: Connection, app_role: str) -> list[str]:
                     f"{r.table_name}: {label} is not the tenant predicate -> {expr!r}"
                 )
 
-    for p in conn.execute(_PARTITION_SQL, {"tables": list(TABLES), "app_role": app_role}).all():
+    partitions = conn.execute(
+        _PARTITION_SQL, {"tables": list(TABLES), "app_role": app_role}
+    ).all()
+    for p in partitions:
         if p.enabled:
             # The partition carries its own RLS, so a direct read is policed on
             # its own terms. Nothing to say.
             continue
-        reachable = [
-            verb for verb, granted in (("SELECT", p.can_select), ("INSERT", p.can_insert)) if granted
-        ]
+        grants = (("SELECT", p.can_select), ("INSERT", p.can_insert))
+        reachable = [verb for verb, granted in grants if granted]
         if reachable:
             problems.append(
                 f"{p.partition_name}: reachable by {app_role} ({'/'.join(reachable)}) with no RLS "

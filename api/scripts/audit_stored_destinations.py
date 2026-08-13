@@ -73,7 +73,10 @@ def main() -> int:
                 text("UPDATE links SET disabled_at = now() WHERE id = ANY(:ids)"),
                 {"ids": [row.id for row in live]},
             )
-            print(f"\n  disabled {len(live)} link(s); resolve_link() now refuses them", file=sys.stderr)
+            print(
+                f"\n  disabled {len(live)} link(s); resolve_link() now refuses them",
+                file=sys.stderr,
+            )
             return 0
         if live:
             print("\n  re-run with --disable to stop these resolving", file=sys.stderr)

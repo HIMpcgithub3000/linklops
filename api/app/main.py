@@ -168,7 +168,10 @@ async def rejected_request(_: Request, exc: RequestValidationError) -> JSONRespo
         {"field": ".".join(str(part) for part in err["loc"]), "reason": err["msg"]}
         for err in exc.errors()
     ]
-    return JSONResponse(status_code=400, content={"detail": "request rejected", "problems": problems})
+    return JSONResponse(
+        status_code=400,
+        content={"detail": "request rejected", "problems": problems},
+    )
 
 
 @app.exception_handler(DBAPIError)

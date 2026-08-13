@@ -9,3 +9,19 @@ exclude = [".venv", "alembic/versions/__pycache__"]
 # I is import sorting. B is bugbear: mutable default arguments, unused loop
 # variables, the class of thing that is legal Python and almost never intended.
 select = ["E", "F", "I", "B", "UP"]
+
+[lint.flake8-bugbear]
+# B008 flags a function call in an argument default, which is normally a real
+# bug: the call runs once at import and the result is shared by every
+# invocation. FastAPI inverts that deliberately -- Depends() and Query() in a
+# default are how the framework declares dependencies and parameter metadata,
+# and they are evaluated by FastAPI per request rather than reused as a value.
+#
+# So the rule is correct in general and wrong here, and the honest response is to
+# tell the linter about the framework rather than to contort five handlers into
+# a shape the framework does not use, or to blanket-disable B008 and lose it for
+# the mutable-default case it exists to catch.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Path",
+    "fastapi.Body", "fastapi.Header", "fastapi.Cookie",
+]
