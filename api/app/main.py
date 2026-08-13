@@ -30,6 +30,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
 
@@ -139,6 +140,25 @@ async def request_logging(request: Request, call_next):
             },
         )
 
+
+# CORS derived from ENVIRONMENT, not from a separate key. A permissive origin
+# list is a development convenience and a production vulnerability, so the value
+# that decides it is the one value that is already required, validated against a
+# Literal, and has no default -- there is no CORS_ORIGINS to forget to set,
+# because forgetting it would mean falling back to the permissive branch.
+#
+# The list is empty rather than "*" outside development: this API is consumed by
+# the tenant dashboard on PUBLIC_BASE_URL and by nothing else, and a wildcard
+# would let any site a customer visits issue authenticated requests against it
+# once Module 4 lands cookies.
+_dashboard_origin = str(settings.PUBLIC_BASE_URL).rstrip("/")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if settings.ENVIRONMENT == "development" else [_dashboard_origin],
+    allow_credentials=settings.ENVIRONMENT != "development",
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "X-Dev-Tenant-Id", "X-Request-Id"],
+)
 
 app.include_router(links.router)
 app.include_router(redirect.router)

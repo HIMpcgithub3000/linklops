@@ -10,7 +10,7 @@ from collections.abc import Iterator
 
 from fastapi import Request
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
@@ -47,6 +47,49 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _assert_environment_matches() -> None:
+    """Refuse to run against a database that says it belongs elsewhere.
+
+    Every other configuration check in this service validates the shape of a
+    value. None of them can catch DATABASE_URL pointing at the wrong database,
+    because a production connection string is exactly as well-formed as a staging
+    one -- required, non-empty, parseable, valid. The check has to ask the
+    database, because only the database knows which one it is.
+
+    Fails closed on a mismatch and fails OPEN when the table is absent, which is
+    a deliberate asymmetry: an older database that predates migration 0005 has
+    not made a claim, and refusing to boot on "no claim" would make this control
+    an outage during the rollout that introduces it. A wrong claim is evidence; a
+    missing claim is silence, and those deserve different responses.
+    """
+    try:
+        with engine.connect() as conn:
+            claimed = conn.execute(
+                text("SELECT environment FROM deployment_identity")
+            ).scalar()
+    except OperationalError:
+        return  # unreachable database: handled by the readiness path, not here
+    except ProgrammingError:
+        print(
+            "WARNING: this database has no deployment_identity row, so it cannot "
+            "state which environment it belongs to. Run `alembic upgrade head`.",
+            file=sys.stderr,
+        )
+        return
+
+    if claimed != settings.ENVIRONMENT:
+        print(
+            f"FATAL: environment mismatch -- refusing to start.\n"
+            f"  this process is configured as ENVIRONMENT={settings.ENVIRONMENT!r}\n"
+            f"  the database it was pointed at says it is {claimed!r}\n"
+            "  One of the two is wrong, and the expensive case is a lower environment\n"
+            "  holding a production connection string, so neither is assumed correct.\n"
+            "  fix: correct DATABASE_URL, or correct ENVIRONMENT -- not this check.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
 
 def _assert_rls_intact() -> None:
@@ -111,6 +154,7 @@ def _assert_rls_intact() -> None:
         raise SystemExit(1)
 
 
+_assert_environment_matches()
 _assert_rls_intact()
 
 

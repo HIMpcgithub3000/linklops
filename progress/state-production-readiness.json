@@ -18,8 +18,34 @@
           "scenario_pick"
         ]
       },
-      "next_module": 1,
-      "next_step": "context"
+      "next_module": 3,
+      "next_step": "context",
+      "module_02": {
+        "status": "complete",
+        "steps_completed": [
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "shipped": [
+          ".github/workflows/ci.yml",
+          "scripts/ci-local.sh",
+          "api/ruff.toml",
+          "api/requirements-dev.txt"
+        ],
+        "notable": "The pipeline gated its own first run: ruff found 10 issues and the build never executed. Five were B008 -- FastAPI's documented Depends()/Query() idiom -- fixed by configuring extend-immutable-calls rather than contorting handlers or disabling the rule.",
+        "git": "Closed the zero-commits gap that had been open since System Design Module 03. Repo now has real history; three commits.",
+        "carry_forward": [
+          "The workflow has never run: no remote, no runner. Trigger behaviour is unverified and I have recorded it as unverified rather than passing.",
+          "Express the main-branch publish guard once as a job-level condition instead of three step-level conditions, so it cannot be removed from one place.",
+          "No pytest suite exists; the four control scripts are the test suite. When System Design Module 09 adds real tests the sequential-vs-parallel arithmetic changes."
+        ]
+      }
     },
     "decisions": {
       "module_01": {
@@ -27,6 +53,12 @@
         "build_strategy": "multi_stage",
         "base_image_reasoning": "Five of this project's dependencies ship compiled binary wheels, verified from their WHEEL metadata: psycopg-binary, uvloop, httptools, watchfiles and pydantic-core. On musl those need musllinux wheels, and where one is missing pip compiles from source -- pydantic-core is Rust, so that means shipping a Rust toolchain into the build. Alpine's 75MB saving is not worth a build that can break on a dependency bump. The image-size argument also does not apply here: this service deploys rarely, so the difference is bounded by download time nobody is waiting on.",
         "build_strategy_reasoning": "Multi-stage, and the base-image choice is what makes it necessary rather than merely tidy. Debian slim does not carry build tooling, so anything that does compile needs gcc and libpq-dev present at build time -- and those must not be in the running image. Multi-stage is how both are true at once. It also keeps the test and lint dependencies out of production, which matters more here than image size: a container that can run pytest is a container that can run arbitrary code someone put in a test fixture."
+      },
+      "module_02": {
+        "ci_platform": "github_actions",
+        "pipeline_shape": "sequential",
+        "reasoning": "Code lived nowhere -- 0 commits, no remote -- so the choice was about where it will live. GitHub because the Railway target of System Design Module 10 integrates natively and the tooling here is the gh CLI. Sequential because measurement: the whole control suite runs in 0.61s, so parallelising lint and test saves under a second on a pipeline whose docker build alone is ~15s cold.",
+        "accepted_cost": "Workflow YAML does not travel between platforms, so the portable part of the pipeline has to be the scripts it calls. Every stage in .github/workflows/ci.yml is a command that also runs from scripts/ci-local.sh."
       }
     }
   }
