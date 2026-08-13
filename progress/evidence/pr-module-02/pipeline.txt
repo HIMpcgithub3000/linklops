@@ -1,0 +1,24 @@
+Module 02 BUILD -- CI pipeline
+Generated 2026-08-13 18:17 UTC
+
+Workflow: .github/workflows/ci.yml   Local fallback: scripts/ci-local.sh
+
+=== first run: the gate held ===
+  lint FAILED with 10 findings and the docker build never ran.
+  5 x B008 (function call in argument default) -- FastAPI's documented idiom,
+        fixed by configuring extend-immutable-calls, not by changing handlers
+  2 x I001 import ordering, 3 x E501 long lines -- all real, all fixed
+
+=== after fixes ===
+
+  lint                   PASS  0s
+  check_url_policy       PASS  0s
+  check_log_injection    PASS  0s
+  check_rls              PASS  1s
+  audit_destinations     PASS  0s
+  docker-build           PASS  0s
+  export-artifact        PASS  1s
+
+  artifact: artifacts/linkops-c70e957.tar (62M)
+  tagged by commit SHA, never :latest -- three images tagged latest are
+  three images you cannot tell apart.

@@ -122,8 +122,12 @@ jobs:
           # Build on every branch so a broken Dockerfile fails the PR, push only
           # from main so the registry holds shipped code and nothing else.
           push: ${{ github.ref == 'refs/heads/main' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Scope must be stable across the runs that should share a cache.
+          # Keyed to the branch, never to github.sha -- a per-commit scope misses
+          # on every run by construction and still pays to write an entry nothing
+          # will ever read, which is more expensive than no cache at all.
+          cache-from: type=gha,scope=${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=${{ github.ref_name }}
 
       - name: Log in to the registry
         if: github.ref == 'refs/heads/main'
