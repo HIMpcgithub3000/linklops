@@ -1,0 +1,18 @@
+Module 01 FIX -- offset pagination stabilised under concurrent inserts
+Generated 2026-08-13 16:50 UTC.
+
+=== which property actually governs the drift (direct to the database) ===
+  newest-first (DESC)                    duplicates in 5/5 trials   distinct/total: 24/30 23/30 23/30 23/30 23/30
+  oldest-first (ASC)                     duplicates in 0/5 trials   distinct/total: 30/30 30/30 30/30 30/30 30/30
+  anchored (DESC, created_at <= as_of)   duplicates in 0/5 trials   distinct/total: 30/30 30/30 30/30 30/30 30/30
+
+All three orderings are total and deterministic. ORDER BY is not the
+discriminator -- where inserts land relative to already-read positions is.
+
+=== the shipped fix, over HTTP ===
+  page-numbered, no anchor, 8 trials, writer inserting every 40ms, 150ms between pages:
+    => 8/8 trials showed a duplicate
+  page-numbered + as_of anchor, 8 trials, writer inserting every 40ms, 150ms between pages:
+    => 0/8 trials showed a duplicate
+  cursor (keyset), 8 trials, writer inserting every 40ms, 150ms between pages:
+    => 0/8 trials showed a duplicate

@@ -1,0 +1,220 @@
+{
+  "decisions": {
+    "module_01": {
+      "project_layout": "single_app",
+      "api_root": "api/",
+      "reasoning": "One service with two entrypoints, not two deployable services. Purge worker at api/src/worker.js beside server.js: one image, two commands. Types shared by import so API and worker cannot hold two versions of tenant scoping at once, which in a multi-tenant system is what makes a purge worker delete the wrong tenant rows.",
+      "deciding_factor": "Reversibility asymmetry. A to B is a git mv plus a CI fix verified by tests; B to A never happens because nobody refactors toward less structure. B pays setup cost daily from Module 01 for a benefit contingent on a growth event not predicted in this roadmap.",
+      "open_risks": [
+        "Single-app gives no free boundaries: nothing stops the worker importing a route handler. Mitigation is an ESLint no-restricted-imports rule, not folder depth.",
+        "Both entrypoints share a dependency tree and config module. Fail-fast validation must live in the shared config module, not in server.js, or the worker silently skips the gate that the API enforces.",
+        "Student prediction for Module 07: a long purge holding connections from a pool sized for HTTP traffic. Mitigation would be per-process-type pool config. Outcome deliberately not confirmed."
+      ]
+    },
+    "module_02": {
+      "engine": "postgresql",
+      "choice": "A",
+      "reasoning": "Query shapes are engine-neutral on retrieval -- lookup by code is a unique-index hit either way, tenant-scoped list is a compound index scan either way. So the constraints decided, not the queries. Uniqueness is a property of the data, not of the code that writes it: NOT NULL UNIQUE means a link with no code cannot exist, whereas a document omitting the field inserts happily and unique indexes treat missing as null, so the second such write fails as a confusing duplicate-key-on-null.",
+      "deciding_factor": "Row-level security is the only mechanism in either engine that makes the Module 01 isolation claim literally true rather than remembered. With FORCE ROW LEVEL SECURITY and a dedicated non-owning app role, a handler that forgets the tenant filter returns zero rows instead of everyone's rows. Mongo has no per-row equivalent; views are read-only, so writes still depend on discipline.",
+      "indexes": [
+        {
+          "name": "uq_links_code",
+          "definition": "btree (code) UNIQUE",
+          "supports": "GET /r/{code}, the hot public redirect path -- one equality probe per request.",
+          "why": "Unique rather than plain because uniqueness is a data property. The index is the constraint; a second index would be a second source of truth. EXPLAIN ANALYZE: Index Scan, 3 buffers / 0.028ms, against a forced seq scan at 910 buffers / 2.913ms."
+        },
+        {
+          "name": "ix_links_tenant_created",
+          "definition": "btree (tenant_id, created_at DESC, id DESC)",
+          "supports": "Tenant-scoped list, newest first, with keyset pagination.",
+          "why": "tenant_id leads because every management-plane query is already tenant-filtered by RLS, so it is the highest-selectivity prefix available. id trails created_at as a tiebreaker: without a total order, two rows sharing a timestamp can straddle a page boundary and be dropped or served twice."
+        },
+        {
+          "name": "ix_click_events_link_time",
+          "definition": "btree (link_id, clicked_at)",
+          "supports": "Per-link analytics over a time range."
+        },
+        {
+          "name": "ix_click_events_tenant_time",
+          "definition": "btree (tenant_id, clicked_at)",
+          "supports": "Tenant dashboard over a time range, without going through links."
+        },
+        {
+          "name": "pk_click_events",
+          "definition": "btree (id, clicked_at)",
+          "supports": "Identity.",
+          "why": "clicked_at is in the key because Postgres requires the partition key to be part of every unique constraint on a partitioned table -- the index is per-partition, so uniqueness cannot be enforced across partitions without it."
+        }
+      ],
+      "break": {
+        "injected": "ALTER POLICY tenant_isolation ON links WITH CHECK (true), run by hand",
+        "why_it_hid": "qual untouched, so reads stayed sealed. Three of four negative controls passed and only the write-side one caught it. Tenant B writes into tenant A's account and cannot see the row afterwards -- invisible to B, invisible to every read-side test, surfacing only in A's dashboard.",
+        "why_the_repo_looked_clean": "It was clean. Migration file unmodified, alembic_version accurate at 0002. Alembic records which revisions ran, never whether the schema still matches them, so hand-run DDL is invisible to it permanently.",
+        "fix": "Migration 0003 re-asserts USING and WITH CHECK on both tables. app/rls.py holds the assertion; app/db.py runs it at boot and refuses to start on drift; scripts/check_rls.py is the CLI and the CI hook.",
+        "control_widened_after_review": [
+          "Full normalised-predicate equality, not a substring of the current_setting(...) call. The first version passed WITH CHECK (created_by = ...) -- right function, wrong column.",
+          "Partition exposure: a parent's policy does not apply to a partition queried directly. Isolation there currently rests on grant scope, not RLS, so the control now asserts the app role holds no direct privilege on any partition."
+        ],
+        "unrecoverable": "Onset. log_statement = none and log_min_duration_statement = -1, and the container log only reaches back to 23:09 IST, so the injection may predate it entirely -- the empty grep is corroboration, not proof."
+      },
+      "open_risks": [
+        "check_rls.py runs at boot and by hand, but not yet in CI. A migration that drops a policy would still merge.",
+        "Partition isolation rests on grant scope rather than RLS. If Module 07 adds a worker role, a blanket GRANT ON ALL TABLES IN SCHEMA public reopens the direct-partition read with no policy change to review.",
+        "No test framework in the project yet. find_drift() is deliberately a pure function taking a connection so Module 09 can assert on it without rewriting it first.",
+        "Zero commits on main, api/ and progress/ untracked. Modules 09 and 10 both assume history exists."
+      ]
+    },
+    "module_03": {
+      "redirect_style": "prefix_r",
+      "links_route": "links",
+      "redirect_prefix": "r",
+      "reasoning": "The two saved characters are all B buys, and it pays with a one-way door: a root route makes the code namespace and the route namespace the same namespace, so every future path becomes a reserved word that must be carved out of the code space before someone mints a colliding code. Under B, /health, /ready, /links and everything Modules 04-10 add each become a migration against live data, with the fallback being to break an issued link to ship a feature.",
+      "deciding_factor": "Reversibility, same frame as Module 01. A to B is additive later -- serve the root as a fallback while /r/ keeps working -- and B to A breaks every link already issued. A keeps the option; B spends it. Secondary: /r/ makes the system's single tenant-free read path visible at the edge, which is where rate limiting, cache policy and abuse logging attach.",
+      "open_risks": [
+        "Attribution is a placeholder: created_by is the nil UUID unless X-Dev-Actor-Id is sent. Module 04 replaces it with the authenticated subject.",
+        "The URL policy blocks IP literals but does not resolve DNS, so a hostname pointing at a private address passes. Deliberate -- resolution on a write path is a caller-controlled network call and is TOCTOU regardless -- but it means any future preview/unfurl feature must re-check at fetch time against the resolved address, on every redirect hop.",
+        "No rate limit on create. Shared-domain reputation is the real asset here, so abuse volume is the thing that actually costs every tenant at once."
+      ],
+      "break": {
+        "class": "open redirect / URL injection (hard tier)",
+        "found": [
+          "https://good.com%40evil.example.com/login accepted: urlsplit sees one opaque host and finds no '@' to object to; a browser percent-decodes %40 back to '@', making good.com userinfo and evil.example.com the real host.",
+          "http://127.1/admin and http://127.0.1/admin accepted: the hand-rolled IP parser knew integer, hex and dotted-quad spellings but not inet_aton's short forms, which expand to 127.0.0.1."
+        ],
+        "root_cause": "One cause wearing two hats: the security decision was made by a parser that is not the parser that acts on the value. urlsplit decides here; the browser dereferences. Wherever the two disagree about the same string, whatever I concluded is irrelevant.",
+        "fix": [
+          "Reject percent-encoding anywhere in the authority. Stronger than decode-and-recheck, which invites 'how many times do I decode' and any answer short of 'until it stops changing' is another bypass.",
+          "Delegate IP-literal detection to socket.inet_aton -- the algorithm the resolver actually applies -- instead of enumerating the spellings I happened to think of."
+        ],
+        "controls_added": [
+          "api/scripts/check_url_policy.py: 43-case table, 34 refused, rows marked REGRESSION are the ones that were once accepted. No database, no network, so it belongs in CI on every commit.",
+          "api/scripts/audit_stored_destinations.py: re-validates every stored destination against the current policy. A create-path fix does not touch rows already written, and those are precisely the ones an attacker made on purpose."
+        ],
+        "remediation": "6 links written while the hole was open, found and disabled; all three exploited codes now 404 through /r/."
+      }
+    }
+  },
+  "bootcamp": {
+    "progress": {
+      "module_01": {
+        "status": "complete",
+        "steps_completed": [
+          "pretest",
+          "scenario_pick",
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "overall_score": 5,
+        "report_submitted": true,
+        "carry_forward": [
+          "Module 02: extend key parity to a third direction, .env.example against the Settings model, to catch a field added in code and never documented.",
+          "Module 02: DATABASE_URL becomes required. A bare required str still accepts an empty value, so closing it needs MinLen or a format type such as PostgresDsn.",
+          "Module 02: /health must stay dependency-free. Add /ready for hard dependencies only, with an explicit timeout, returning 503 so the instance deregisters without being killed.",
+          "Deferred: readiness must flip false on SIGTERM before the server closes, or routine deploys drop in-flight requests.",
+          "Known rough edge, deliberately not fixed: difflib suggests a mildly wrong 'did you mean' key. The authoritative line above it names the missing key exactly, so the hint is advisory."
+        ]
+      },
+      "next_module": 4,
+      "next_step": "context",
+      "module_02": {
+        "status": "complete",
+        "steps_completed": [
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "report_submitted": true,
+        "carry_forward": [
+          "Module 03: the management-plane routes must take the tenant-bound session from get_session(), never get_public_session(). The public session is untenanted by design and reads nothing from links -- a route wired to the wrong dependency returns empty rather than erroring, which reads as 'no data' instead of 'wrong session'.",
+          "Module 03: writes must surface the RLS WITH CHECK violation as a 403, not a 500. Postgres raises it as a generic ProgrammingError, so without explicit handling an authorization denial is indistinguishable from a bug.",
+          "Module 05: set log_statement = 'ddl'. It is the one-line change that makes the next schema-drift onset answerable; the reason this one is not is a logging default nobody chose.",
+          "Module 09: assert find_drift() against a deliberately drifted schema. It was written as a pure function for exactly this.",
+          "Module 10: add `python scripts/check_rls.py` as a CI step immediately after `alembic upgrade head`. Also, the tier above -- a ddl_command_end event trigger scoped to ALTER/CREATE/DROP POLICY -- needs superuser and cannot run inside a transaction block, so it is a platform bootstrap and Railway will not grant it. Log to an audit table before blocking.",
+          "Module 10: no lockfile and no hashes in api/requirements.txt -- 6 declared packages resolve to 26 installed, and fastapi pins annotated-doc only as >=0.0.2, so an identical requirements.txt can install different code on a different day. Generate a hash-pinned lockfile and run CI installs with `pip install --require-hashes` so substitution fails the build rather than shipping. (Interlude: left-pad.)"
+        ],
+        "overall_score": 5,
+        "report_score_out_of_10": 10.0
+      },
+      "module_03": {
+        "status": "complete",
+        "steps_completed": [
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "report_submitted": false,
+        "api_design_rule_learned": "State a validation rule in terms of the parser that will act on the value, not the one that is convenient to call. Where two readings of the same string differ, reject rather than normalise -- 'normalise to whose reading?' has no safe answer -- and where a real algorithm exists for the question (inet_aton, punycode), delegate to it rather than enumerating cases. Corollary that cost me the second half of this fix: tightening validation has two halves, stop accepting it and go find what was already accepted.",
+        "carry_forward": [
+          "Module 04: X-Dev-Tenant-Id and the nil created_by are placeholders. Replacing them with the authenticated subject is what retires the AUTH_BACKEND boot guard in app/db.py -- the guard is written to remove itself when that constant changes.",
+          "Module 04: no rate limit on create. Shared-domain reputation is the asset every tenant depends on, so abuse volume is what costs all of them at once, and that is an authz-adjacent control.",
+          "Module 05: the 400 handler deliberately drops pydantic's `input` field. When structured logging lands, do not let the logger put it back -- this endpoint's job is rejecting hostile URLs, so the rejected value is attacker-controlled by definition.",
+          "Module 06: the redirect is the obvious cache candidate, but caching resolve_link() means a disabled or expired link keeps resolving for the cache's lifetime. Expiry is evaluated at read time today specifically so no such window exists; a cache reintroduces it and needs explicit invalidation on disable and expiry.",
+          "Module 09: check_url_policy.py is already a table of cases and expected verdicts -- wire it into the suite rather than rewriting it as tests.",
+          "Module 10: CI must run check_rls.py, check_url_policy.py and audit_stored_destinations.py."
+        ]
+      }
+    },
+    "student": "Himanshu Sharma",
+    "skill": "system-design-fundamentals",
+    "pack": "launchpad",
+    "product_scenario": "b2b_multi_tenant",
+    "product_scenario_reasoning": "Chose the branch where the failing code looks correct at the line level. IDOR is invisible in a single file; open-redirect and scheme-validation bugs are not. The Module 05 tenant_id retrofit forces reasoning about decisions made in Modules 01-06 before the requirement existed, which pressures the tracked time-axis gap.",
+    "pretest": {
+      "self_rating": "ok",
+      "observed_level": "intermediate-to-advanced",
+      "environment": {
+        "os": "macOS (Darwin arm64)",
+        "shell": "zsh",
+        "setup_check": "all tools present",
+        "versions": {
+          "node": "v22.21.0",
+          "npm": "11.16.0",
+          "pnpm": "11.7.0",
+          "python3": "3.14.6",
+          "pip3": "26.1.2",
+          "git": "2.50.1",
+          "docker": "29.5.3",
+          "docker_compose": "v5.1.4",
+          "curl": "8.7.1"
+        }
+      },
+      "answers": {
+        "health_vs_readiness": "Correct, including the alive-but-not-ready asymmetry. Did not name the consumer action (restart vs deregister).",
+        "redirect_abuse": "Named reputation lending, blocklist evasion, spam amplification. Missed SSRF via server-side fetch of the destination.",
+        "error_500_triage": "Logs/stack trace, then blast radius (systemic vs single endpoint). Missed onset time and correlation IDs.",
+        "idempotency": "At-least-once delivery and the crash-before-ack window; applied it to click counting. Did not name the dedup-key implementation for non-identity operations.",
+        "database_index": "B-tree page churn from indexing a hot counter; read/write ratio framing. Missed planner selectivity.",
+        "testing_style": "integration_heavy, with unit tests reserved for branchy pure functions. Missed failure localization and suite-runtime cost.",
+        "environment_preference": "bash/zsh (Linux-style), recorded by observation"
+      },
+      "teaching_calibration": {
+        "pace": "Skip basic definitions. Ask what breaks in production after each VERIFY. Select harder BREAK bugs earlier.",
+        "tracked_gaps": [
+          "Under-weights the time axis: reasons spatially about current state, less about what changed and when.",
+          "Costs a mechanism correctly but does not always verify the intended benefit actually lands (query planner, cache key shape)."
+        ],
+        "strengths": [
+          "Unprompted security reasoning",
+          "Names concrete failure modes rather than abstractions",
+          "Frames tradeoffs as purchases with a price"
+        ]
+      }
+    }
+  }
+}

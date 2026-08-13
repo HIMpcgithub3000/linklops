@@ -1,0 +1,29 @@
+MODULE 02 -- persistence evidence
+generated at   2026-08-13T15:10:32+00:00
+========================================================================
+
+tenant A       019ffbac-c828-712f-8d2b-8158711f85b9
+tenant B       019ffbac-c828-712f-8d2b-8159b48ce73a
+
+--- INSERT (tenant A) ---
+inserted code  mE8YubM3
+long_url       https://example.com/a-fairly-long-destination-url?utm_source=module-02
+
+--- SELECT WHERE code = ? (tenant A session) ---
+selected code  mE8YubM3
+matched url    https://example.com/a-fairly-long-destination-url?utm_source=module-02
+owner          019ffbac-c828-712f-8d2b-8158711f85b9
+MATCH          code True | long_url True
+
+--- NEGATIVE CONTROLS (each must return nothing) ---
+tenant B reading tenant A's code by exact match : 0 rows
+SELECT * FROM links with no WHERE (tenant B)    : 0 rows
+session with no app.tenant_id set               : 0 rows
+tenant B inserting a row owned by tenant A      : blocked (ProgrammingError)
+
+--- PUBLIC REDIRECT PATH (no tenant bound) ---
+resolve_link(mE8YubM3) -> https://example.com/a-fairly-long-destination-url?utm_source=module-02
+resolved owner 019ffbac-c828-712f-8d2b-8158711f85b9  (tenant_id is an OUTPUT here, not an input)
+
+--- click_events (RANGE partitioned by clicked_at) ---
+row landed in  click_events_2026_08  (1 row)

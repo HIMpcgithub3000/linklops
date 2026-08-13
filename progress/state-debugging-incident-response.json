@@ -1,0 +1,120 @@
+{
+  "bootcamp": {
+    "student": "Himanshu Sharma",
+    "skill": "debugging-incident-response",
+    "pack": "launchpad",
+    "product_scenario": "linkops",
+    "product_scenario_note": "Fixed by the skill, not chosen. The scenario is the URL shortener platform, and the server routes this session as lane 'checkpoint_fork' from checkpoint 'system-design-module-03-url-shortener' -- so the lab vehicle is literally the service built in System Design Modules 01-03, not a fresh copy. Same workspace and same api/ tree; this file exists so recording debugging-skill state does not overwrite progress/state.json, which belongs to system-design-fundamentals and records scenario b2b_multi_tenant.",
+    "workspace_route": {
+      "lane": "checkpoint_fork",
+      "checkpoint": "system-design-module-03-url-shortener",
+      "source_skill_slug": "system-design-fundamentals"
+    },
+    "route_mapping_note": "The skill describes routes as POST /links, GET /:shortCode, GET|DELETE /api/admin/links. The built service uses POST /links, GET /r/{code} (prefix chosen in SDF Module 03 DECIDE, redirect_style=prefix_r) and has no admin namespace yet. Admin endpoints and the analytics worker do not exist: analytics writes were deliberately deferred to SDF Module 07 and auth to SDF Module 04, both of which are behind a locked pack. Recording the gap rather than inventing the routes.",
+    "progress": {
+      "module_01": {
+        "status": "complete",
+        "steps_completed": [
+          "pretest",
+          "scenario_pick",
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "debugging_direction": "A (top-down)",
+        "bugs": {
+          "bug_1_env_var_mismatch": "DB_URL vs DATABASE_URL. Diagnosed in one command -- app/config.py key parity reports both halves of a rename at import, before any engine exists. The lab expects a misleading ORM connectivity error; this codebase does not produce one.",
+          "bug_2_pagination_offset": "offset was page*limit and ORDER BY was absent. Fixed to (page-1)*limit plus ORDER BY created_at DESC, id DESC.",
+          "bug_3_code_pattern": "Not injected. Found while verifying: CODE_PATTERN was compiled from CODE_ALPHABET, which omits 0/1/l/I/O, so every seeded code (test001) 404'd before the lookup. A generator policy had been compiled into a reader.",
+          "break_pagination_drift": "Duplicates under concurrent inserts WITH ORDER BY present. Root cause is that an offset addresses a position and newest-first ordering puts every insert at position 1. Fixed with an as_of anchor; verified 8/8 -> 0/8."
+        },
+        "carry_forward": [
+          "Module 02 (logs): the analytics worker drops poison jobs with a stderr print and no structure. Reading that as a story is impossible today -- no correlation id, no level, no timestamp.",
+          "Module 02: the enqueue on the redirect path swallows Redis failures at warning level. If that log is not structured, a silent undercount is indistinguishable from no traffic.",
+          "Standing process fix: confirm a server bound before trusting a request against it. Debugged a stale process twice this module.",
+          "The as_of anchor bounds a traversal but never expires; a client can hold one indefinitely and page a snapshot arbitrarily far in the past. Needs a max age before it is a real API."
+        ]
+      },
+      "next_module": null,
+      "next_step": "context",
+      "module_02": {
+        "status": "complete",
+        "steps_completed": [
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "bugs": {
+          "bug_3_log_level": "LOGGING_LEVEL_OVERRIDE='warning' short-circuited settings.LOG_LEVEL via `or`. The config contract could not catch it: the key existed, parsed and validated, and was discarded in code.",
+          "bug_4_timezone": "Not possible in its textbook form (every column is timestamptz). Found the same class in code I wrote: the worker bucketed with DATE_TRUNC('hour', NOW()), which truncates in the session time zone. 3 clicks in one hour split into buckets 17:00 and 17:30 across UTC and Asia/Kolkata sessions.",
+          "break_log_injection": "Forged admin-login record embedded in a long_url. Refused at the boundary by the U+000A rule from System Design Module 03; producer escaping verified; grep remains vulnerable."
+        },
+        "carry_forward": [
+          "The per-request DEBUG ring buffer promised in the DECIDE is not built. Minimal-by-default is only safe with it; without it a once-a-week bug on a 200 response is still invisible.",
+          "No log line between 'request received' and 'request completed' -- 13ms unexplained on the create path. Missing: code-collision retry count, db time split from pool checkout wait, and enqueue success (currently only failure is logged, so success is inferred from absence).",
+          "Watchdog not built: assert the analytics bucket equals now_utc truncated to the hour, and log WARNING only on disagreement. Record the comparison, not the two values.",
+          "check_log_injection.py joins check_rls.py and check_url_policy.py as CI-pending controls."
+        ]
+      },
+      "module_03": {
+        "status": "complete",
+        "steps_completed": [
+          "context",
+          "decide",
+          "build",
+          "verify",
+          "break",
+          "fix",
+          "reflect"
+        ],
+        "hints_used": 0,
+        "bugs": {
+          "bug_5_duplicate_key_race": "check-then-insert on analytics. Two failure modes, not one: loud (11 of 12 threads raise UniqueViolation) and silent (0 errors, 3 of 12 clicks counted, lost updates). Minimum concurrency to trigger measured at 2; loss scales as roughly N-1.",
+          "bug_6_timestamp_corruption": "NOW() is transaction_timestamp(), frozen at BEGIN. The row lock picks the winner by commit order while NOW() picks the value by begin order. Measured 0.53s stale. Fixed with clock_timestamp() on both branches plus GREATEST for monotonicity."
+        },
+        "other_sites_found": "api/scripts/seed_linkops.py holds the same check-then-insert twice. The links one is protected by uq_links_code so it fails loudly. The tenants one is not: tenants has only a primary key on id and a status CHECK, no unique index on name, so concurrent seeds would create duplicate tenants with nothing to raise. A check-then-insert is only as loud as the constraint underneath it.",
+        "carry_forward": [
+          "tenants.name has no unique constraint. Either add one or convert the seed to an upsert; today the safety depends on the script being single-threaded.",
+          "The error rate massively understates the damage rate for lost-update races. Any alerting built on exception counts alone will under-prioritise exactly the bugs that corrupt data silently.",
+          "Still owed from Module 02: the per-request DEBUG ring buffer flushed on error. Module 03 is the module that would have used it."
+        ]
+      },
+      "pack_status": "launchpad complete (3/3)"
+    },
+    "pretest": {
+      "self_rating": "strong",
+      "environment": {
+        "os": "macOS 26.5.2 arm64",
+        "shell": "zsh",
+        "python": "3.14.6",
+        "node": "v22.21.0",
+        "docker": "29.5.3",
+        "git": "2.50.1",
+        "curl": "8.7.1",
+        "setup_check": "all tools present, all above the stated minimums"
+      },
+      "tracked_gap_carried_from_system_design": "Reasons spatially about current state and under-weights the time axis, so 'what changed and when' has to be forced rather than reached for. Named it unprompted in answer 1."
+    },
+    "decisions": {
+      "module_02": {
+        "log_strategy": "B (minimal by default)",
+        "reasoning": "The checkout incident that argues for verbose was a classification error, not a threshold error -- 'duplicate charge detected' was INFO, and under verbose it is still INFO and now buried in 50k lines/sec. Chose B with three conditions that make it safe: a guaranteed identically-shaped completion line per request at INFO, a runtime-changeable level, and per-request DEBUG buffered in memory and flushed only when the request ends in an error."
+      },
+      "module_03": {
+        "reproduction_approach": "B (synthetic reproduction)",
+        "reasoning": "Privacy first: production traffic here is other tenants' destination URLs plus the tenant identifier that maps each request to a named account, and copying it to a laptop is an unreversible data-protection event to chase a few errors an hour. Then iteration speed, which compounds where fidelity does not. Decisive point: a synthetic run that fails still eliminates a hypothesis, while a replay that fails says only that the bug did not happen this time.",
+        "switch_trigger": "When the suspected trigger is a data shape I cannot imagine -- a malformed row, an encoding, an unanticipated field length -- because there my imagination is the binding constraint and synthetic reproduction inherits it. Then the honest form of replay is redacted, sampled traffic in an isolated environment with production's controls, not a capture on a laptop."
+      }
+    }
+  }
+}

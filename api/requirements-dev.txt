@@ -1,0 +1,5 @@
+# Development and CI only. Deliberately NOT installed into the runtime image --
+# a container that can run a linter or a test framework can execute whatever
+# someone put in a fixture, and reducing what an image can do beats reducing
+# what it weighs.
+ruff>=0.6

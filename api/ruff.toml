@@ -1,0 +1,11 @@
+# Line length matches the prose width the codebase is already written to.
+line-length = 100
+target-version = "py314"
+
+exclude = [".venv", "alembic/versions/__pycache__"]
+
+[lint]
+# E/F are pyflakes and pycodestyle errors -- real mistakes rather than taste.
+# I is import sorting. B is bugbear: mutable default arguments, unused loop
+# variables, the class of thing that is legal Python and almost never intended.
+select = ["E", "F", "I", "B", "UP"]

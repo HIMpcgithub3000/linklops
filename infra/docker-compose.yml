@@ -1,0 +1,51 @@
+# LinkOps debugging lab infrastructure.
+#
+# Separate containers from upsk-sdf-postgres, which holds the System Design
+# workspace and its evidence. Nothing here touches that container: different
+# names, different volumes, different database. Bringing this stack down and
+# deleting its volume costs nothing but a re-seed.
+#
+# Postgres is published on 5433, not the canonical 5432. Worth recording how
+# that was established, because it is a debugging lesson in itself: `lsof -nP
+# -iTCP:5432 -sTCP:LISTEN` reported nothing, `netstat -an` reported nothing, and
+# `docker ps` showed no container on it -- yet the bind failed with EADDRINUSE.
+# Something holds 5432 that this user cannot see. A socket bind is the only
+# check that answers the question actually being asked; every other check
+# answers "can I observe a holder", which is a different and weaker question.
+# Redis keeps 6379. The System Design stack sits on 55432, so nothing collides.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: linkops-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: linkops
+    ports:
+      - "5433:5432"
+    volumes:
+      - linkops-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready, not a TCP check. Postgres accepts connections while it is
+      # still recovering and will refuse queries -- a port check would report
+      # ready and the first migration would fail against a database that says
+      # "the database system is starting up".
+      test: ["CMD-SHELL", "pg_isready -U postgres -d linkops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: linkops-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  linkops-pgdata:

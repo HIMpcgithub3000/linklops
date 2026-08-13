@@ -1,0 +1,25 @@
+MODULE 02 -- index integrity and partition coverage
+generated at   2026-08-13T14:35:42Z
+========================================================================
+
+--- every index on links / click_events, with build state ---
+    table     |            index            | valid | ready | uniq 
+--------------+-----------------------------+-------+-------+------
+ click_events | ix_click_events_link_time   | t     | t     | f
+ click_events | ix_click_events_tenant_time | t     | t     | f
+ click_events | pk_click_events             | t     | t     | t
+ links        | ix_links_tenant_created     | t     | t     | f
+ links        | links_pkey                  | t     | t     | t
+ links        | uq_links_code               | t     | t     | t
+(6 rows)
+
+--- partition-level index coverage ---
+A parent index created ON ONLY leaves children uncovered while the
+parent still looks correct. Each partition must carry all three.
+      partition       | indexes |                                                         names                                                         
+----------------------+---------+-----------------------------------------------------------------------------------------------------------------------
+ click_events_2026_08 |       3 | click_events_2026_08_link_id_clicked_at_idx, click_events_2026_08_pkey, click_events_2026_08_tenant_id_clicked_at_idx
+ click_events_2026_09 |       3 | click_events_2026_09_link_id_clicked_at_idx, click_events_2026_09_pkey, click_events_2026_09_tenant_id_clicked_at_idx
+ click_events_default |       3 | click_events_default_link_id_clicked_at_idx, click_events_default_pkey, click_events_default_tenant_id_clicked_at_idx
+(3 rows)
+

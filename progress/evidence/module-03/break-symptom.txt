@@ -1,0 +1,29 @@
+Module 03 BREAK -- symptom
+Generated 2026-08-13 15:43 UTC against a live server on 127.0.0.1:8099.
+
+SYMPTOM: destinations the create endpoint accepts that it should not.
+Every one of these returned 201 and is now a live short link.
+
+  1. reads as good.com, is not good.com
+    submitted   https://good.com%40evil.example.com/login
+    accepted    HTTP 201   stored as: https://good.com%40evil.example.com/login
+    redirect    302 -> https://good.com%40evil.example.com/login
+    a browser resolves that host to: evil.example.com  (the browser percent-decodes %40 to '@', making good.com userinfo)
+
+  2. short-form IPv4
+    submitted   http://127.1/admin
+    accepted    HTTP 201   stored as: http://127.1/admin
+    redirect    302 -> http://127.1/admin
+    a browser resolves that host to: 127.0.0.1  (BSD inet_aton fills the middle octets with zeros)
+
+  3. three-part IPv4
+    submitted   http://127.0.1/admin
+    accepted    HTTP 201   stored as: http://127.0.1/admin
+    redirect    302 -> http://127.0.1/admin
+    a browser resolves that host to: 127.0.0.1  (same expansion, last part becomes the low 16 bits)
+
+For contrast, these are still refused, so the boundary is not simply absent:
+  [400] http://127.0.0.1/
+  [400] http://[::ffff:127.0.0.1]/
+  [400] https://good.com@evil.example.com/
+  [400] javascript:alert(1)

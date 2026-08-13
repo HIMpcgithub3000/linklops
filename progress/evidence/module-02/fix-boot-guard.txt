@@ -1,0 +1,73 @@
+Module 02 FIX -- control wired to boot, and widened after the injected bug.
+Generated 2026-08-13 15:08 UTC against upsk-sdf-postgres, alembic head 0003.
+
+=== 1. baseline: live schema matches the migrations ===
+--- healthy
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped; no partition reachable by upsk_app without RLS
+    check_rls.py exit=0
+    import app.db exit=0
+
+=== 2. the original drift, re-injected: WITH CHECK dropped to true ===
+    reads stay sealed, writes go anywhere -- the shape no read-side test can see
+  [ddl] ALTER POLICY tenant_isolation ON links WITH CHECK (true)
+--- drifted (WITH CHECK = true)
+RLS DRIFT -- live schema does not match the migrations:
+  links: WITH CHECK is not the tenant predicate -> 'true'
+  fix: `alembic upgrade head` re-asserts the policies. If it reports nothing to do, or the line above is a grant, the change was made by hand -- no migration describes it, so revert it at the source.
+    check_rls.py exit=1
+    FATAL: tenant isolation has drifted from the migrations -- refusing to start.
+      links: WITH CHECK is not the tenant predicate -> 'true'
+      Serving now would write rows across tenant boundaries.
+      fix: `alembic upgrade head` re-asserts the policies; a grant reported above
+           was never in a migration and has to be revoked at the source.
+      then: `python scripts/check_rls.py` to confirm before restarting
+    import app.db exit=1
+  [repair] alembic downgrade 0002 && alembic upgrade head
+--- repaired
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped; no partition reachable by upsk_app without RLS
+    check_rls.py exit=0
+    import app.db exit=0
+
+=== 3. the drift a substring check would have missed ===
+    right function, right cast, WRONG COLUMN: created_by instead of tenant_id.
+    the previous check matched only the current_setting(...) fragment, so this passed it.
+  [ddl] ALTER POLICY tenant_isolation ON links WITH CHECK (created_by = nullif(current_setting('app.tenant_id', true), '')::uuid)
+--- drifted (predicate on created_by)
+RLS DRIFT -- live schema does not match the migrations:
+  links: WITH CHECK is not the tenant predicate -> "(created_by = (NULLIF(current_setting('app.tenant_id'::text, true), ''::text))::uuid)"
+  fix: `alembic upgrade head` re-asserts the policies. If it reports nothing to do, or the line above is a grant, the change was made by hand -- no migration describes it, so revert it at the source.
+    check_rls.py exit=1
+    FATAL: tenant isolation has drifted from the migrations -- refusing to start.
+      links: WITH CHECK is not the tenant predicate -> "(created_by = (NULLIF(current_setting('app.tenant_id'::text, true), ''::text))::uuid)"
+      Serving now would write rows across tenant boundaries.
+      fix: `alembic upgrade head` re-asserts the policies; a grant reported above
+           was never in a migration and has to be revoked at the source.
+      then: `python scripts/check_rls.py` to confirm before restarting
+    import app.db exit=1
+  [repair] alembic downgrade 0002 && alembic upgrade head
+--- repaired
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped; no partition reachable by upsk_app without RLS
+    check_rls.py exit=0
+    import app.db exit=0
+
+=== 4. partition exposure: isolation resting on a grant, not on a policy ===
+    a parent's policy does not apply to a partition queried directly.
+    today upsk_app has no grant on the partitions; this is what happens when that changes.
+  [ddl] GRANT SELECT ON click_events_2026_08 TO upsk_app
+--- drifted (partition granted to app role)
+RLS DRIFT -- live schema does not match the migrations:
+  click_events_2026_08: reachable by upsk_app (SELECT) with no RLS of its own -- click_events's policy does not apply to a partition queried directly, so this bypasses tenant isolation
+  fix: `alembic upgrade head` re-asserts the policies. If it reports nothing to do, or the line above is a grant, the change was made by hand -- no migration describes it, so revert it at the source.
+    check_rls.py exit=1
+    FATAL: tenant isolation has drifted from the migrations -- refusing to start.
+      click_events_2026_08: reachable by upsk_app (SELECT) with no RLS of its own -- click_events's policy does not apply to a partition queried directly, so this bypasses tenant isolation
+      Serving now would write rows across tenant boundaries.
+      fix: `alembic upgrade head` re-asserts the policies; a grant reported above
+           was never in a migration and has to be revoked at the source.
+      then: `python scripts/check_rls.py` to confirm before restarting
+    import app.db exit=1
+  [ddl] REVOKE SELECT ON click_events_2026_08 FROM upsk_app
+--- repaired
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped; no partition reachable by upsk_app without RLS
+    check_rls.py exit=0
+    import app.db exit=0

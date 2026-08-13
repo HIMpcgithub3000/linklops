@@ -1,0 +1,24 @@
+Module 03 FIX -- silent timestamp corruption under concurrency
+Generated 2026-08-13 17:51 UTC
+
+=== NOW() is transaction_timestamp(), frozen at BEGIN ===
+  Two SELECTs 0.4s apart inside ONE transaction:
+    NOW()            t0=17:49:41.368002  t1=17:49:41.368002  moved=False
+    clock_timestamp  t0=17:49:41.368457  t1=17:49:41.775413  moved=True
+
+=== deterministic corruption, two connections ===
+  T1 BEGIN; T2 BEGIN 0.5s later; T2 writes and commits; T1 writes and commits LAST.
+    with NOW():             count=2  last_accessed_at 0.53s stale
+    with clock_timestamp(): count=2  last_accessed_at 0.01s stale
+  The row lock picks the winner by COMMIT order; NOW() picks the value by
+  BEGIN order. Nothing keeps those in agreement, so the final value belongs
+  to whichever transaction started earliest among the late committers.
+
+=== shipped fix, verified under concurrency ===
+  12 concurrent clicks, each holding a 50ms transaction:
+    count      = 12/12
+    staleness  = 0.001s
+    monotonic  = column forced 1h ahead, then a click applied -> value kept, not rolled back: True
+
+  Note the count was 12/12 both before and after. The concurrency control was
+  never broken -- only the timestamp was, which is why nothing raised.

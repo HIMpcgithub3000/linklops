@@ -1,0 +1,138 @@
+name: CI
+
+# Every branch gets lint and the control suite. Only main builds and publishes an
+# image -- a feature branch that pollutes the registry costs storage and, worse,
+# makes "which image is deployed" ambiguous.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A stuck job burns the free-minute budget until the platform's global limit,
+# which is hours. Ten minutes is generous for a pipeline whose control suite runs
+# in 0.61 seconds and whose image builds cold in about fifteen.
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  verify:
+    name: lint + controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Two of the four controls read pg_class and pg_policies, so CI needs a real
+    # Postgres rather than a mock. That is deliberate: check_rls.py exists to
+    # assert that the LIVE schema still matches the migrations, and a mocked
+    # database would assert only that the mock matches the migrations, which is
+    # a tautology. The one control worth having is the one that talks to a real
+    # server.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: linkops
+        ports: ["5432:5432"]
+        # Without this the first migration races the server's startup and fails
+        # with "the database system is starting up".
+        options: >-
+          --health-cmd "pg_isready -U postgres -d linkops"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Pinned to the version the Dockerfile pins, which is the version used
+          # in development. Three places now agree, and the day they stop
+          # agreeing is the day this pipeline stops being evidence about what
+          # ships.
+          python-version: "3.14"
+
+      - name: Install dependencies
+        working-directory: api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      # Cheapest check first. Lint needs no database and no migrations, so a
+      # style failure costs seconds rather than the whole setup.
+      - name: Lint
+        working-directory: api
+        run: ruff check .
+
+      - name: Run migrations
+        working-directory: api
+        env:
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops
+        run: alembic upgrade head
+
+      # The four standing controls ARE the test suite for this project. Each
+      # asserts a property that was violated at least once during development,
+      # and each has been watched failing.
+      - name: Controls
+        working-directory: api
+        env:
+          PORT: "8000"
+          ENVIRONMENT: development
+          DATABASE_URL: postgresql+psycopg://upsk_app:upsk_app_pw@localhost:5432/linkops
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops
+          REDIS_URL: redis://localhost:6379
+          PUBLIC_BASE_URL: http://localhost:8000
+          LOG_LEVEL: info
+          MONGODB_URI: ""
+          JWT_SECRET: ""
+          API_KEY_A: ""
+          API_KEY_B: ""
+        run: |
+          python scripts/check_url_policy.py
+          python scripts/check_log_injection.py
+          python scripts/check_rls.py
+          python scripts/audit_stored_destinations.py
+
+  image:
+    name: build + publish
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Lets the job push to ghcr.io using the token GitHub already issues for
+      # this run. No REGISTRY_PASSWORD secret exists to leak, rotate or forget,
+      # and the token dies when the job does -- a stored credential is a
+      # long-lived one, and this pipeline needs no long-lived credential at all.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # Tagged by commit SHA, never by :latest. Three images tagged latest
+          # are three images you cannot tell apart; a SHA traces a running
+          # container back to the exact diff that produced it, which is the
+          # question actually asked at 2 AM.
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          # Build on every branch so a broken Dockerfile fails the PR, push only
+          # from main so the registry holds shipped code and nothing else.
+          push: ${{ github.ref == 'refs/heads/main' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Log in to the registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report what was published
+        if: github.ref == 'refs/heads/main'
+        run: echo "published ${{ env.IMAGE }}:${{ github.sha }}"

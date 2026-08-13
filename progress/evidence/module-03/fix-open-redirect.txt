@@ -1,0 +1,84 @@
+Module 03 FIX -- open-redirect edge cases closed, with a permanent regression control
+Generated 2026-08-13 15:46 UTC.
+
+=== 1. minimal reproduction, before and after ===
+    the request that produced the symptom, run straight against the boundary:
+    rejected https://good.com%40evil.example.com/login
+               destination host must not contain percent-encoding
+    rejected http://127.1/admin
+               destination points at a non-public address (127.0.0.1); short links must resolve to the public internet
+    rejected http://127.0.1/admin
+               destination points at a non-public address (127.0.0.1); short links must resolve to the public internet
+
+=== 2. regression control, healthy ===
+URL policy ok: 43 cases -- 34 refused, 9 accepted, all as declared
+    exit=0
+
+=== 3. re-inject weakness A: drop the percent-encoding check ===
+    URL POLICY REGRESSION -- 1 of 43 cases behaved wrongly:
+      expected reject, got accept: 'https://good.com%40evil.example.com/login'
+          why this case exists: REGRESSION: percent-encoded userinfo. Browser decodes %40 to '@', so the host is evil.example.com while the stored text reads good.com
+          boundary said: https://good.com%40evil.example.com/login
+    exit=1
+
+=== 4. re-inject weakness B: drop inet_aton, keep only canonical IP parsing ===
+    URL POLICY REGRESSION -- 6 of 43 cases behaved wrongly:
+      expected reject, got accept: 'http://127.1/admin'
+          why this case exists: REGRESSION: short-form IPv4, inet_aton expands to 127.0.0.1
+          boundary said: http://127.1/admin
+      expected reject, got accept: 'http://127.0.1/admin'
+          why this case exists: REGRESSION: three-part IPv4, inet_aton expands to 127.0.0.1
+          boundary said: http://127.0.1/admin
+      expected reject, got accept: 'http://0x7f.1/'
+          why this case exists: REGRESSION: hex first octet plus short form
+          boundary said: http://0x7f.1/
+    exit=1
+
+=== 5. repaired ===
+URL policy ok: 43 cases -- 34 refused, 9 accepted, all as declared
+    exit=0
+
+=== 6. end to end: the same three requests against the live API ===
+The same three requests that returned 201 during BREAK, replayed against the
+live API after the fix. 'stored as: -' means nothing was written.
+
+  1. reads as good.com, is not good.com
+    submitted   https://good.com%40evil.example.com/login
+    accepted    HTTP 400   stored as: -
+    a browser resolves that host to: evil.example.com  (the browser percent-decodes %40 to '@', making good.com userinfo)
+
+  2. short-form IPv4
+    submitted   http://127.1/admin
+    accepted    HTTP 400   stored as: -
+    a browser resolves that host to: 127.0.0.1  (BSD inet_aton fills the middle octets with zeros)
+
+  3. three-part IPv4
+    submitted   http://127.0.1/admin
+    accepted    HTTP 400   stored as: -
+    a browser resolves that host to: 127.0.0.1  (same expansion, last part becomes the low 16 bits)
+
+For contrast, these are still refused, so the boundary is not simply absent:
+  [400] http://127.0.0.1/
+  [400] http://[::ffff:127.0.0.1]/
+  [400] https://good.com@evil.example.com/
+  [400] javascript:alert(1)
+
+=== 7. retroactive: rows written while the hole was open ===
+    A create-path fix does not touch rows already in the table, and those are
+    exactly the ones an attacker made on purpose. Audit re-validates every
+    stored destination against the current policy.
+
+    STORED DESTINATIONS FAIL THE CURRENT POLICY: 6 of 50018 links (0 still resolvable)
+      [already disabled] C96Zyy6V  tenant=019ffbcb-122d-720b-9bd2-939e83c3c7fd
+          https://good.com%40evil.example.com/login
+          destination host must not contain percent-encoding
+      [already disabled] sEJomaeT  tenant=019ffbcb-122d-720b-9bd2-939e83c3c7fd
+          http://127.1/admin
+    ...
+
+    after --disable, and re-audit:
+    
+      none of these resolve; 6 already disabled, nothing to do
+    exit=0  (clears once nothing resolves -- a permanently red control gets ignored)
+
+    the three exploited codes, through the public redirect: 404 / 404 / 404

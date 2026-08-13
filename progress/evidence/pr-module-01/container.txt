@@ -1,0 +1,35 @@
+Module 01 BUILD -- containerising LinkOps
+Generated 2026-08-13 18:06 UTC
+
+=== image size: single-stage vs multi-stage ===
+linkops:single-fixed  476MB
+linkops:single  476MB
+linkops:multi  361MB
+  saving: 115MB (476 -> 361), about 24%
+  Where it came from: the builder's venv is copied, everything else is not --
+  pip's cache, the source tree that only mattered at install time, and the
+  apt state pip touched. The runtime stage starts from a clean FROM.
+
+=== security hardening, verified in the running image ===
+  runs as            appuser (single-stage ran as root)
+  .env in image      no
+  .env.example       present (the config contract; app refuses to start without it)
+
+=== a real defect found by checking rather than assuming ===
+  The first .dockerignore said '.env'. That pattern matches only the context
+  ROOT. The real file is api/.env, so 'COPY api/ ./' shipped live database
+  credentials into an image layer. Confirmed by grepping the built image:
+  DATABASE_URL and MIGRATION_DATABASE_URL both present, both with passwords.
+  Layers are immutable, so a later RM would not have removed it -- anyone
+  who pulls the image can read a 'deleted' file. Fixed to **/.env and
+  !**/.env.example, rebuilt, re-checked: .env absent, contract still present.
+
+=== running container, end to end ===
+  /health            {"ok":true}
+  /ready             200 (Postgres reachable from the container)
+  /r/test002         302 (redirect + Redis enqueue)
+  HEALTHCHECK        healthy
+
+  logs arrive as JSON on stdout, unbuffered:
+    {"ts": "2026-08-13T18:06:04.279Z", "level": "info", "logger": "api", "msg": "request received", "req_id": "r-f0838b72", "method": "GET", "path": "/r/test002"}
+    {"ts": "2026-08-13T18:06:04.283Z", "level": "info", "logger": "api", "msg": "request completed", "req_id": "r-f0838b72", "method": "GET", "path": "/r/test002", "status": 302, "duration_ms": 3.8}

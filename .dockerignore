@@ -1,0 +1,38 @@
+# Build context hygiene. Everything here is either a secret, a machine-local
+# artifact, or bulk that would be sent to the daemon for no reason.
+
+.git
+.gitignore
+
+# .env carries real credentials and must never enter an image -- an image is a
+# distributable artifact and anything baked into a layer stays in that layer
+# even if a later instruction deletes it. Config reaches the container as
+# environment variables at run time instead.
+**/.env
+**/.env.*
+# Leading **/ is load-bearing and its absence was a real defect: a bare `.env`
+# pattern matches only the context ROOT, and the real file is api/.env, so a
+# `COPY api/ ./` shipped live database credentials into an image layer. Verified
+# by grepping the built image. Layers are immutable, so a later RM would not
+# have removed it -- anyone who pulls the image can read the deleted file.
+# .env.example is the CONTRACT, not a secret, and app/config.py refuses to start
+# without it -- it is the file every key is validated against. Explicitly
+# re-included after the wildcard above.
+!**/.env.example
+
+# Machine-local: this venv's scripts carry absolute paths to /Users/... and its
+# wheels are macosx_11_0_arm64. Copying it into a linux/amd64 image would
+# produce imports that fail at runtime rather than at build.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Evidence, notes and diagnosis write-ups. Useful to a reader, irrelevant to a
+# running process, and some of it names tenant ids.
+progress/
+*.md
+
+# Infrastructure definitions describe how to run containers; they do not belong
+# inside one.
+infra/

@@ -1,0 +1,50 @@
+Module 02 BUILD -- Bug #3 (log level) and Bug #4 (timezone), LinkOps
+Generated 2026-08-13 17:36 UTC
+
+=== BUG #3 SYMPTOM: .env says LOG_LEVEL=info; three requests produced this ===
+  {"ts":"2026-08-13T17:34:12.458Z","level":"warning","logger":"app.routers.redirect",
+   "msg":"analytics enqueue failed, click not counted: ConnectionError","req_id":"r-37e2eb9a"}
+
+  One line. Three requests were made. The line carries req_id r-37e2eb9a and
+  no other line in the file shares that id -- a correlation id pointing at a
+  story that was never written.
+
+=== BUG #3 CAUSE ===
+  app/main.py had:  LOGGING_LEVEL_OVERRIDE = "warning"
+                    configure(LOGGING_LEVEL_OVERRIDE or settings.LOG_LEVEL)
+  A non-empty string is truthy, so 'or' never reached the setting. .env was
+  correct, the config contract validated it, and it was discarded in code.
+
+=== BUG #3 AFTER FIX: configure(settings.LOG_LEVEL) ===
+  17:36:35.686 info  r-d3204944   request received   method=POST path=/links
+  17:36:35.699 info  r-d3204944   request completed  method=POST path=/links status=201 duration_ms=12.9
+  17:36:35.704 info  r-bddbb993   request received   method=GET path=/r/test002
+  17:36:35.713 info  r-bddbb993   request completed  method=GET path=/r/test002 status=302 duration_ms=8.4
+  17:36:35.718 info  r-18fada68   request received   method=GET path=/r/nope9999
+  17:36:35.721 info  r-18fada68   request completed  method=GET path=/r/nope9999 status=404 duration_ms=2.6
+
+  Every request now has a received and a completed line sharing one req_id.
+  Note the 404 sits at level=info with status=404: an unknown short code is
+  the service working correctly, and an error stream that is mostly 404s
+  teaches everyone that ERROR does not mean act.
+
+=== BUG #4: DATE_TRUNC('hour', NOW()) truncates in the SESSION time zone ===
+  Same instant, evaluated under three session zones:
+    UTC                17:00:00+00:00   |  utc-anchored  17:00:00+00:00
+    Asia/Kolkata       23:00:00+05:30   |  utc-anchored  22:30:00+05:30
+    America/New_York   13:00:00-04:00   |  utc-anchored  13:00:00-04:00
+
+  BEFORE -- 3 clicks in one real hour, 2 workers in UTC and 1 in Asia/Kolkata:
+    bucket 2026-08-13 17:00:00+00:00  count=2
+    bucket 2026-08-13 17:30:00+00:00  count=1
+    -> 2 rows for one hour. The PK is (link_id, timestamp_bucket), so
+       ON CONFLICT never fired and the counts split instead of merging.
+
+  AFTER -- DATE_TRUNC('hour', NOW() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
+  4 clicks across UTC, Asia/Kolkata and America/New_York:
+    bucket 2026-08-13 17:00:00+00:00  count=4   -> 1 bucket
+
+  Why it hides: America/New_York is a whole-hour offset, so truncating there
+  and in UTC name the same instant and the bug does not exist. It only
+  appears for half- and quarter-hour zones (India, Iran, Nepal, parts of
+  Australia), so a team testing in US or EU zones cannot reproduce it.

@@ -1,0 +1,28 @@
+Module 02 FIX -- log injection
+Generated 2026-08-13 17:40 UTC
+
+=== boundary: the module's exact payload against the live API ===
+  POST /links long_url = https://normal-url.com
+{forged admin-login record}
+  -> 400  'destination contains a character that cannot appear in a URL: U+000A (Cc)'
+  The control-character rule was written in System Design Module 03 to stop
+  CRLF reaching a Location header. It closes this path too.
+
+=== producer: same payloads straight through the formatter ===
+log format ok: 12 hostile payloads, each emitted as exactly one parseable JSON object with the payload contained in a field
+  exit=0
+
+=== control proves it fires: re-inject a hand-rolled 'fast path' formatter ===
+LOG INJECTION REGRESSION -- 11 of 12 payloads broke the one-record-one-line invariant:
+  emitted a line break: the module's payload: newline + a complete forged record
+  emitted a line break: carriage return instead of newline
+  emitted a line break: CRLF, as a log shipper would split it
+  did not parse as one JSON object (Expecting ',' delimiter: line 1 column 104 (char 103)): bare forged JSON with no line break
+  exit=1
+  repaired exit=0
+
+=== the part the fix does NOT cover ===
+  A forged string is still present in the file, correctly escaped inside a
+  field value. grep -c 'admin login' over a log containing it returns 2.
+  Producer escaping guarantees structure, never the absence of a string.
+  The remaining defence is the consumer: parse the line, then read fields.

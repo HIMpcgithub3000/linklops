@@ -1,0 +1,76 @@
+MODULE 02 -- planner evidence (EXPLAIN ANALYZE)
+generated at   2026-08-13T14:35:42Z
+========================================================================
+
+indisvalid says an index is built. It does not say the planner picks
+it. At one row the planner is CORRECT to seq-scan -- reading one page
+beats an index descent -- so a plan captured at current volume proves
+nothing about production. Both volumes are recorded below; the
+difference IS the selectivity argument.
+
+########## BEFORE: current volume ##########
+links rows: 1
+SET
+                                           QUERY PLAN                                           
+------------------------------------------------------------------------------------------------
+ Seq Scan on links  (cost=0.00..1.01 rows=1 width=96) (actual time=0.005..0.005 rows=0 loops=1)
+   Filter: ((code)::text = 'nonexistent1'::text)
+   Rows Removed by Filter: 1
+   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=111
+ Planning Time: 0.123 ms
+ Execution Time: 0.017 ms
+(8 rows)
+
+
+########## seeding 50000 rows under one bench tenant ##########
+
+########## AFTER: seeded volume ##########
+links rows: 50001
+
+--- DATA PLANE: redirect lookup, WHERE code = ? (expect uq_links_code) ---
+SET
+                                                      QUERY PLAN                                                      
+----------------------------------------------------------------------------------------------------------------------
+ Index Scan using uq_links_code on links  (cost=0.29..8.31 rows=1 width=59) (actual time=0.015..0.015 rows=1 loops=1)
+   Index Cond: ((code)::text = 'd3a326000001'::text)
+   Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=111
+ Planning Time: 0.116 ms
+ Execution Time: 0.028 ms
+(7 rows)
+
+--- MANAGEMENT PLANE: tenant list page 1 (expect ix_links_tenant_created) ---
+SET
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.41..5.44 rows=20 width=36) (actual time=0.018..0.063 rows=20 loops=1)
+   Buffers: shared hit=23
+   ->  Index Scan using ix_links_tenant_created on links  (cost=0.41..12569.46 rows=49999 width=36) (actual time=0.017..0.061 rows=20 loops=1)
+         Index Cond: (tenant_id = '019fe900-0000-7000-8000-000000000001'::uuid)
+         Buffers: shared hit=23
+ Planning:
+   Buffers: shared hit=133 read=1
+ Planning Time: 0.193 ms
+ Execution Time: 0.079 ms
+(9 rows)
+
+--- COUNTERFACTUAL: same lookup with the index refused ---
+What the redirect costs without uq_links_code, at this row count.
+SET
+SET
+SET
+                                            QUERY PLAN                                             
+---------------------------------------------------------------------------------------------------
+ Seq Scan on links  (cost=0.00..1535.01 rows=1 width=43) (actual time=0.006..2.900 rows=1 loops=1)
+   Filter: ((code)::text = 'd3a326000001'::text)
+   Rows Removed by Filter: 50000
+   Buffers: shared hit=910
+ Planning:
+   Buffers: shared hit=108
+ Planning Time: 0.119 ms
+ Execution Time: 2.913 ms
+(8 rows)
+

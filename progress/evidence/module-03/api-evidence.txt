@@ -1,0 +1,65 @@
+Module 03 BUILD/VERIFY -- live API evidence
+Generated 2026-08-13 15:30 UTC. uvicorn on 127.0.0.1:8099 (port 8000 held by an
+unrelated process); routes /links and /r/<code>, redirect_style = prefix_r.
+
+tenant A 019ffbbf-54ca-7278-aa95-30e943829e19
+tenant B 019ffbbf-54ca-7278-aa95-30eaf2292a23
+
+=== 1. CREATE (valid) ===
+$ curl -X POST http://127.0.0.1:8099/links -d {"long_url":"https://example.com/a-real-destination?utm=m03"}
+  {"id":"019ffbbf-5955-7252-b0bc-5e9aadc4b56f","code":"Et5jxk6f","short_url":"http://127.0.0.1:8099/r/Et5jxk6f","long_url":"https://example.com/a-real-destination?utm=m03","created_at":"2026-08-13T15:30:49.298557Z","expires_at":null,"tags":["marketing","q3"]}
+  status: 201  (second create)
+
+=== 2. REDIRECT /r/<code> ===
+$ curl -i http://127.0.0.1:8099/r/Et5jxk6f
+  HTTP/1.1 302 Found
+  date: Thu, 13 Aug 2026 15:30:48 GMT
+  server: uvicorn
+  location: https://example.com/a-real-destination?utm=m03
+  cache-control: no-store
+  transfer-encoding: chunked
+  
+
+=== 3. /health still works (root namespace not swallowed) ===
+  HTTP/1.1 200 OK
+  {"ok":true}  /ready: 200
+
+=== 4. GET link by id, and the same id as tenant B ===
+  as owner (tenant A): 200
+  as tenant B        : 404  <- 404, not 403: a 403 would confirm the id exists
+  tenant B list      : {"items":[],"next_cursor":null}
+
+=== 5. LIST, keyset pagination ===
+  page 1 (limit=2): ['7o3qxmkM', 'od6QLQYd'] next_cursor: MjAyNi0wOC0xM1QxNTozMDo0...
+  page 2          : ['U6VQE5P8', 'aXHXSRSq'] next_cursor: MjAyNi0wOC0xM1QxNTozMDo0
+  malformed cursor: 400  (400, not 500)
+
+=== 6. VALIDATION ABUSE CHECKS -- every one must be 400 and must not store ===
+  [400] javascript:                        Value error, scheme 'javascript' is not allowed; permitted schemes are http, https
+  [400] JaVaScRiPt: (case)                 Value error, scheme 'javascript' is not allowed; permitted schemes are http, https
+  [400] whitespace-wrapped                 Value error, scheme 'javascript' is not allowed; permitted schemes are http, https
+  [400] data: html                         Value error, scheme 'data' is not allowed; permitted schemes are http, https
+  [400] scheme-relative                    Value error, scheme 'none' is not allowed; permitted schemes are http, https
+  [400] encoded slashes                    Value error, destination has no host
+  [400] encoded scheme                     Value error, scheme 'none' is not allowed; permitted schemes are http, https
+  [400] backslashes                        Value error, destination contains a character that cannot appear in a URL: U+005C (Po)
+  [400] userinfo trick                     Value error, destination must not contain userinfo before '@'
+  [400] trailing newline                   Value error, destination contains a character that cannot appear in a URL: U+000A (Cc)
+  [400] expires_at in the past             Value error, expires_at must be in the future
+  [400] expires_at naive                   Value error, expires_at must include a UTC offset, e.g. 2027-01-01T00:00:00Z
+  [400] unknown field                      Extra inputs are not permitted
+  [400] tag too long                       Value error, each tag must be at most 64 characters
+
+=== 7. private / metadata / encoded-localhost destinations ===
+  [400] loopback v4                        Value error, destination points at a non-public address (127.0.0.1); short links must re
+  [400] cloud metadata                     Value error, destination points at a non-public address (169.254.169.254); short links m
+  [400] loopback v6                        Value error, destination points at a non-public address (::1); short links must resolve 
+  [400] decimal-encoded                    Value error, destination points at a non-public address (127.0.0.1); short links must re
+  [400] hex-encoded                        Value error, destination points at a non-public address (127.0.0.1); short links must re
+  [400] octal dotted                       Value error, destination points at a non-public address (127.0.0.1); short links must re
+  [400] RFC1918                            Value error, destination points at a non-public address (192.168.1.1); short links must 
+
+=== 8. nothing was stored by any rejected request ===
+  tenant A link count: 5  (1 tagged + 1 second + 3 paging = 5 expected)
+  unknown code       : 404  (404, same as expired/disabled -- no oracle)
+  short code         : 404      (404, refused before the database)

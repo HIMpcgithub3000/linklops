@@ -1,0 +1,32 @@
+Module 01 BREAK -- pagination duplicates under concurrent inserts
+Generated 2026-08-13 16:47 UTC. Offset math is correct and ORDER BY is present.
+
+=== A. deterministic: insert exactly one link between page 1 and page 2 ===
+  page 1        : dcc0fb5a dce992a5 dc124e0a dc0230e5 dc8c60da dcf7ee77 dce9e222 dc96a1c7 dc3d2285 dc93e9f2
+  [one INSERT lands here -- a new newest row]
+  page 2        : dc93e9f2 dc2e568b dc0e0def dc6ad011 dc71f652 dc1d2583 dc16677c dc14bdc1 dcaf9321 dcfc3db6
+  seen on BOTH  : dc93e9f2 
+
+=== D. controlled comparison: same load, both endpoints ===
+  page-numbered (offset), 8 trials, writer inserting every 40ms, 150ms between pages:
+    trial 1: 30 rows, 22 distinct  <-- 8 duplicate(s): cy18da28 cy344c82 cy7b64a5
+    trial 2: 30 rows, 23 distinct  <-- 7 duplicate(s): cy5eb322 cybfd103 cyc37973
+    trial 3: 30 rows, 23 distinct  <-- 7 duplicate(s): dp214b6d dp69d99e dp6c90f5
+    trial 4: 30 rows, 23 distinct  <-- 7 duplicate(s): dp4a17ee dp4ce3b3 dp569426
+    trial 5: 30 rows, 23 distinct  <-- 7 duplicate(s): dp39b25a dp4a2152 dp6d4c99
+    trial 6: 30 rows, 23 distinct  <-- 7 duplicate(s): dp00e054 dp01f56e dp2de433
+    trial 7: 30 rows, 23 distinct  <-- 7 duplicate(s): dp9d8ce7 dpb076fb dpbcae0c
+    trial 8: 30 rows, 23 distinct  <-- 7 duplicate(s): dp3a6443 dp3d57e1 dp4edce2
+    => 8/8 trials showed a duplicate
+
+  cursor (keyset), 8 trials, writer inserting every 40ms, 150ms between pages:
+    trial 1: 30 rows, 30 distinct
+    trial 2: 30 rows, 30 distinct
+    trial 3: 30 rows, 30 distinct
+    trial 4: 30 rows, 30 distinct
+    trial 5: 30 rows, 30 distinct
+    trial 6: 30 rows, 30 distinct
+    trial 7: 30 rows, 30 distinct
+    trial 8: 30 rows, 30 distinct
+    => 0/8 trials showed a duplicate
+

@@ -1,0 +1,49 @@
+Module 03 BUILD -- reproducing the analytics duplicate-key race
+Generated 2026-08-13 17:47 UTC
+
+Script: repro_race.py. Tests all three candidates, not only the likely one.
+Each candidate runs the identical work function; only the named variable moves.
+
+=== check-then-insert (the naive pattern) ===
+    mode=naive  concurrency=12  bucket=2026-08-13 17:00:00+00:00
+  
+    candidate 3 -- CONCURRENCY: 12 clicks, same link, same instant
+      errors: 0   counted: 3/12   rows: 1
+  
+    candidate 1 -- DATA: same concurrency, three different link shapes
+      fresh uuid     errors: 11   counted: 1/12
+      second uuid    errors: 11   counted: 1/12
+      third uuid     errors: 11   counted: 1/12
+  
+    candidate 2 -- TIMING: same link, buckets an hour apart, sequential
+      errors: 0   counted: 12/12   rows: 2 (2 buckets expected)
+
+=== INSERT ... ON CONFLICT DO UPDATE (one atomic statement) ===
+    mode=upsert  concurrency=12  bucket=2026-08-13 17:00:00+00:00
+  
+    candidate 3 -- CONCURRENCY: 12 clicks, same link, same instant
+      errors: 0   counted: 12/12   rows: 1
+  
+    candidate 1 -- DATA: same concurrency, three different link shapes
+      fresh uuid     errors: 0   counted: 12/12
+      second uuid    errors: 0   counted: 12/12
+      third uuid     errors: 0   counted: 12/12
+  
+    candidate 2 -- TIMING: same link, buckets an hour apart, sequential
+      errors: 0   counted: 12/12   rows: 2 (2 buckets expected)
+
+=== what the numbers say ===
+  Concurrency is the trigger: hold it constant and vary the link (candidate 1)
+  and the failure follows every link; remove it and run the same clicks
+  sequentially across two buckets (candidate 2) and 12/12 count correctly.
+
+  The naive pattern has TWO failure modes, and the module only names one.
+    loud   11 of 12 threads raise UniqueViolation -- all read NULL before
+           any committed, so all 12 chose INSERT and 11 lost the key.
+    silent 0 errors, 3 of 12 counted. Some threads read AFTER a commit,
+           took the UPDATE path, and wrote count = stale_value + 1 --
+           each overwriting the others. Nine clicks vanished with no
+           exception, no log line, and a plausible-looking number left
+           in the table.
+  The silent mode is the dangerous one. A duplicate-key 500 is at least a
+  page; an undercount is a dashboard nobody questions.

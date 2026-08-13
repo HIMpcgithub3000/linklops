@@ -1,0 +1,23 @@
+MODULE 02 -- N+1 scan of the seed/list path
+generated at   2026-08-13T14:35:44Z
+========================================================================
+
+Closes the BREAK menu's hard item. A query inside a loop is the shape;
+every execute() call site below is listed with its enclosing block.
+
+  49:    return "".join(secrets.choice(ALPHABET) for _ in range(n))
+  71:        conn.execute(
+  82:        s.execute(
+  96:        row = s.execute(
+  113:        cross = s.execute(
+  122:        unscoped = s.execute(text("SELECT count(*) FROM links")).scalar_one()
+  127:        unbound = s.execute(text("SELECT count(*) FROM links")).scalar_one()
+  136:                s.execute(
+  152:    # columns for a link that is resolvable right now.
+  154:        redirect = s.execute(
+  164:        s.execute(
+  179:        part = s.execute(
+  186:    for p, n in part:
+
+Result: the only loop is line 186, which iterates an already-materialised
+result set for printing. No execute() call occurs inside any loop body.

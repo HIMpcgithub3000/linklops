@@ -1,0 +1,20 @@
+MODULE 02 -- RLS drift control, re-injected
+generated at   2026-08-13T14:35:41Z
+========================================================================
+
+The claim is not 'check_rls.py exists'. The claim is that it FAILS when
+the exact production drift is present. Injected and repaired below; the
+middle run must exit non-zero or the control is decorative.
+
+--- healthy ---
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped
+exit=0
+
+--- drift injected: ALTER POLICY tenant_isolation ON links WITH CHECK (true) ---
+RLS DRIFT -- live schema does not match the migrations:
+  links: WITH CHECK is not the tenant predicate -> 'true'
+exit=1
+
+--- repaired ---
+RLS ok: links, click_events -- enabled, forced, USING and WITH CHECK both scoped
+exit=0

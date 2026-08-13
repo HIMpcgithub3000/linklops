@@ -1,0 +1,33 @@
+{
+  "bootcamp": {
+    "student": "Himanshu Sharma",
+    "skill": "production-readiness",
+    "pack": "launchpad",
+    "product_scenario": "imgpipe",
+    "product_scenario_reasoning": "Chose B over the default because the architecture already exists and is running, so every production-readiness constraint lands on real code rather than on scaffolding. The LinkOps redirect pipeline is structurally the imgpipe shape: an API that must respond without waiting for the work (GET /r/{code} returns a 302 and never blocks on analytics), a Redis queue between them, and a separate worker process that drains it. The payload is a click event rather than an image, and I am recording that difference rather than pretending otherwise.",
+    "scenario_constraint_mapping": {
+      "processing must not block the response": "Already true and deliberate: enqueue_click() does a fire-and-forget LPUSH and swallows Redis failures, so a redirect never fails because a counter is unavailable.",
+      "memory usage must be bounded": "Currently NOT true anywhere. The Redis list has no maximum length, the worker has no container memory limit, and there is no backpressure -- if the worker stops, the queue grows until Redis evicts or dies.",
+      "failed processing must be retried, not silently dropped": "Currently FALSE by design and flagged as a carry-forward two modules ago: worker/main.py catches every exception, prints one line to stderr and drops the job. That is the single largest gap this scenario exposes."
+    },
+    "progress": {
+      "module_01": {
+        "status": "in_progress",
+        "steps_completed": [
+          "pretest",
+          "scenario_pick"
+        ]
+      },
+      "next_module": 1,
+      "next_step": "context"
+    },
+    "decisions": {
+      "module_01": {
+        "base_image": "debian_slim",
+        "build_strategy": "multi_stage",
+        "base_image_reasoning": "Five of this project's dependencies ship compiled binary wheels, verified from their WHEEL metadata: psycopg-binary, uvloop, httptools, watchfiles and pydantic-core. On musl those need musllinux wheels, and where one is missing pip compiles from source -- pydantic-core is Rust, so that means shipping a Rust toolchain into the build. Alpine's 75MB saving is not worth a build that can break on a dependency bump. The image-size argument also does not apply here: this service deploys rarely, so the difference is bounded by download time nobody is waiting on.",
+        "build_strategy_reasoning": "Multi-stage, and the base-image choice is what makes it necessary rather than merely tidy. Debian slim does not carry build tooling, so anything that does compile needs gcc and libpq-dev present at build time -- and those must not be in the running image. Multi-stage is how both are true at once. It also keeps the test and lint dependencies out of production, which matters more here than image size: a container that can run pytest is a container that can run arbitrary code someone put in a test fixture."
+      }
+    }
+  }
+}
