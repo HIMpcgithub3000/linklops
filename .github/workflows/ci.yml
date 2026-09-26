@@ -76,16 +76,6 @@ jobs:
 
       - name: Run migrations
         working-directory: api
-        env:
-          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops_test
-        run: alembic upgrade head
-
-      # One env block for every step that talks to the services, so the two URLs
-      # cannot drift between the controls and the tests. CLICK_IP_SALT is set
-      # because ENVIRONMENT is development here -- in staging or production the
-      # config guard makes an empty salt a refused boot.
-      - name: Standing controls
-        working-directory: api
         env: &db_env
           PORT: "8000"
           ENVIRONMENT: development
@@ -94,11 +84,21 @@ jobs:
           REDIS_URL: redis://localhost:6379
           PUBLIC_BASE_URL: http://localhost:8000
           LOG_LEVEL: info
-          MONGODB_URI: ""
-          JWT_SECRET: ""
-          API_KEY_A: ""
-          API_KEY_B: ""
+          MONGODB_URI: "mongodb://localhost:27017/shortener"
+          JWT_SECRET: "ci-secret-not-used"
+          API_KEY_A: "ci-key-a"
+          API_KEY_B: "ci-key-b"
+          CLICK_RETENTION_DAYS: "30"
           CLICK_IP_SALT: ci-not-a-secret
+        run: alembic upgrade head
+
+      # One env block for every step that talks to the services, so the two URLs
+      # cannot drift between the controls and the tests. CLICK_IP_SALT is set
+      # because ENVIRONMENT is development here -- in staging or production the
+      # config guard makes an empty salt a refused boot.
+      - name: Standing controls
+        working-directory: api
+        env: *db_env
         # Every control, all green. check_tenant_coverage joined once migration
         # 0012 gave the teams tables RLS (AI-Aug review finding F2) -- it had been
         # held out only because it exited 1 on that documented gap, and a
