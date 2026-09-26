@@ -6,12 +6,14 @@ Usage:
 
 import sys
 from pathlib import Path
+
 from sqlalchemy import create_engine, text
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import settings
-from app.auth import mint
+from app.auth import mint  # noqa: E402
+from app.config import settings  # noqa: E402
+
 
 def main():
     tenant_name = sys.argv[1] if len(sys.argv) > 1 else "m04-tenant-a"
@@ -22,15 +24,18 @@ def main():
     with engine.begin() as conn:
         tenant_id = conn.execute(
             text("SELECT id FROM tenants WHERE name = :name"),
-            {"name": tenant_name}
+            {"name": tenant_name},
         ).scalar()
         if not tenant_id:
             print(f"Error: Tenant '{tenant_name}' not found.")
             return 1
 
         conn.execute(
-            text("INSERT INTO api_keys (key_id, tenant_id, secret_hash, label) VALUES (:kid, :tid, :sh, 'dev-key')"),
-            {"kid": key_id, "tid": tenant_id, "sh": secret_hash}
+            text(
+                "INSERT INTO api_keys (key_id, tenant_id, secret_hash, label) "
+                "VALUES (:kid, :tid, :sh, 'dev-key')"
+            ),
+            {"kid": key_id, "tid": tenant_id, "sh": secret_hash},
         )
 
     print(f"API Key successfully minted for tenant '{tenant_name}':")
@@ -39,5 +44,7 @@ def main():
     print(f'  -H "X-API-Key: {full_api_key}"')
     return 0
 
+
 if __name__ == "__main__":
     raise SystemExit(main())
+
