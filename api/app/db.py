@@ -21,7 +21,7 @@ from app.rls import connecting_role, find_drift
 # definition. The guard below is what stops that from ever reaching a real
 # deployment -- and it removes itself, because M4 changes this constant and
 # the check stops firing.
-AUTH_BACKEND = "dev-header"
+AUTH_BACKEND = "api-key"
 DEV_TENANT_HEADER = "X-Dev-Tenant-Id"
 
 if AUTH_BACKEND == "dev-header" and settings.ENVIRONMENT != "development":
@@ -44,6 +44,25 @@ engine = create_engine(
     pool_pre_ping=True,   # a connection killed by a DB restart fails the checkout, not the query
     pool_size=5,
     max_overflow=5,
+    # Explicit timeouts, added for deployment (Module 10). The module's failure
+    # mode is a hang, not a crash: a wedged database or an exhausted pool that
+    # waits forever holds a worker thread, and enough of them stall the service
+    # behind a dependency that is never coming back. Every wait here is bounded.
+    #
+    #   pool_timeout   how long a request waits for a free pooled connection
+    #                  before giving up. Unbounded by default -- so under a
+    #                  connection spike the symptom is requests that hang rather
+    #                  than a clean 503 the load balancer can act on.
+    #   connect_timeout  (libpq, via connect_args) how long the initial TCP+auth
+    #                  handshake may take. Without it a network black hole makes
+    #                  a new connection block for the OS default of ~2 minutes.
+    #
+    # statement_timeout is NOT set globally here: a background rollup and a
+    # redirect have different right answers for "too long", so it is set per
+    # transaction where it matters (see ping() below and the worker) rather than
+    # as one number that is wrong for one of them.
+    pool_timeout=5,
+    connect_args={"connect_timeout": 5},
 )
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -159,10 +178,20 @@ _assert_rls_intact()
 
 
 def resolve_tenant_id(request: Request) -> str:
-    value = request.headers.get(DEV_TENANT_HEADER)
-    if not value:
-        raise ValueError(f"{DEV_TENANT_HEADER} is required until Module 4 lands real auth")
-    return value
+    """The tenant the request is bound to, taken from the authenticated principal.
+
+    Set by the auth dependency before the session is opened. Reading it from
+    request.state rather than from a header is the whole point of Module 04: the
+    previous version trusted X-Dev-Tenant-Id, which a caller supplied and could
+    therefore choose.
+    """
+    tenant_id = getattr(request.state, "principal_tenant_id", None)
+    if not tenant_id:
+        # Reached only if a route wires get_session without the auth dependency.
+        # Failing closed here means the mistake is an error rather than a silent
+        # unauthenticated read.
+        raise ValueError("no authenticated principal on this request")
+    return tenant_id
 
 
 def bind_tenant(session: Session, tenant_id: str) -> None:

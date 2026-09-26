@@ -100,6 +100,40 @@ class LinkCreate(BaseModel):
         return cleaned
 
 
+class LinkUpdate(BaseModel):
+    """A partial update of a link's resolution inputs.
+
+    Same extra="forbid" as LinkCreate, and for a sharper reason here: a PATCH
+    body is the natural place to try `tenant_id`, because a client that cannot
+    set an owner at create time may well try to change one afterwards.
+
+    `long_url` runs through the identical validator as create, deliberately
+    reusing the field rather than restating the rule. A destination policy that
+    is enforced on create and not on update is not a policy -- it is a delay,
+    and the two-step bypass (create something innocuous, then PATCH it to the
+    payload you wanted) is the first thing anyone would try.
+
+    Both fields default to None meaning "unchanged", which is why `disabled` is
+    a bool and not a timestamp: the caller expresses intent, and the server owns
+    when it happened.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    long_url: str | None = None
+    disabled: bool | None = None
+
+    @field_validator("long_url")
+    @classmethod
+    def _validate_optional_destination(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            return validate_destination(value)
+        except DestinationRejected as exc:
+            raise ValueError(str(exc)) from exc
+
+
 class LinkOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -110,6 +144,59 @@ class LinkOut(BaseModel):
     created_at: datetime
     expires_at: datetime | None = None
     tags: list[str] | None = None
+
+
+class LinkSearchResult(LinkOut):
+    """A search hit: a link plus its click total.
+
+    Extends LinkOut rather than redefining it, so a field added to the link
+    representation cannot appear in one listing and not the other.
+    """
+
+    clicks: int = 0
+
+
+class LinkSearchPage(BaseModel):
+    """One page of search results, with the metadata needed to page through.
+
+    `page_size` is the size actually *applied*, not the one requested. The
+    service clamps to MAX_PAGE_SIZE, so echoing the request back would tell a
+    caller who asked for 1000 that they received 1000 and let them compute
+    offsets that skip 900 rows every page.
+
+    `total_pages` is computed with a ceiling rather than inferred from whether
+    the last page was full. "The page was full, so there is another" produces an
+    empty final page whenever total is an exact multiple of page_size -- one of
+    the two classic off-by-ones here, the other being 1-based pages fed into a
+    0-based offset.
+    """
+
+    items: list[LinkSearchResult]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+
+class LinkAnalytics(BaseModel):
+    """Click totals for one link over a half-open window.
+
+    The window is echoed back rather than assumed. A caller that sent a naive
+    datetime, or relied on a default, otherwise has no way to tell which window
+    the number actually describes -- and an analytics figure whose window is
+    ambiguous is worse than no figure, because it will be compared against
+    another one.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    link_id: uuid.UUID
+    # `from` is a Python keyword, so the field is from_ and the wire name is set
+    # explicitly. The API's shape must not be decided by the host language.
+    from_: datetime = Field(..., serialization_alias="from")
+    to: datetime
+    clicks: int
+    last_clicked_at: datetime | None = None
 
 
 class LinkPage(BaseModel):

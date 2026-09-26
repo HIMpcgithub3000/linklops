@@ -193,6 +193,31 @@ class Settings(BaseSettings):
     API_KEY_A: str = ""
     API_KEY_B: str = ""
 
+    # --- live from Module 7 ----------------------------------------------
+    # How long a raw click event is kept. Defaulted rather than required,
+    # because unlike PORT there is a defensible answer that is not a silent
+    # substitution: 30 days is the module's own figure, and the *rollup* in
+    # `analytics` is not governed by this at all -- it is aggregate, carries no
+    # per-visitor row, and is what the product actually reads. So the default
+    # deletes personal data on a schedule and keeps the numbers, which is the
+    # safe direction to be wrong in.
+    #
+    # ge=0 rather than ge=1 on purpose: 0 means "purge everything on the next
+    # run", which is the only way to demonstrate the purge without waiting a
+    # month, and is a legitimate setting for a development database.
+    CLICK_RETENTION_DAYS: int = Field(default=30, ge=0, le=3650)
+
+    # Salt for the stored IP hash. Empty is tolerated in development and fatal
+    # anywhere else -- see the check in _load_or_exit.
+    #
+    # An unsalted hash of an IP address is not anonymisation and it is not close.
+    # The entire IPv4 space is 2^32 values; hashing all of them and building a
+    # reverse table is minutes of work on a laptop, so sha256(ip) is a reversible
+    # encoding of the IP wearing the costume of a digest. The salt is what makes
+    # the table useless to anyone who does not also hold the salt, which is why
+    # it belongs in configuration rather than in the source.
+    CLICK_IP_SALT: str = ""
+
 
 def declared_keys(path: Path) -> set[str]:
     """Left-hand sides of assignments in a dotenv-style file.
@@ -307,7 +332,7 @@ def _load_or_exit() -> Settings:
         sys.exit(1)
 
     try:
-        return load_settings()
+        loaded = load_settings()
     except ValidationError as exc:
         print("FATAL: invalid configuration -- refusing to start", file=sys.stderr)
         print(f"  env file: {ENV_FILE}", file=sys.stderr)
@@ -321,6 +346,31 @@ def _load_or_exit() -> Settings:
             if hint:
                 print(f"    fix: {hint}", file=sys.stderr)
         sys.exit(1)
+
+    # Environment-gated, like the CORS origin list in app/main.py, and for the
+    # same reason: the permissive branch is a development convenience and a
+    # production defect, so the value that decides it is the one that is already
+    # required and validated against a Literal. There is no way to forget it.
+    #
+    # This is checked here rather than as a field validator because it is a
+    # relationship between two fields, and because the failure has to be fatal
+    # in the same shape as every other contract violation -- a service that
+    # boots and then stores reversible IP hashes has already leaked by the time
+    # anyone reads a warning.
+    if loaded.ENVIRONMENT != "development" and not loaded.CLICK_IP_SALT.strip():
+        print("FATAL: invalid configuration -- refusing to start", file=sys.stderr)
+        print(
+            f"  CLICK_IP_SALT: must be set when ENVIRONMENT is {loaded.ENVIRONMENT!r}",
+            file=sys.stderr,
+        )
+        print(
+            "    fix: an unsalted hash of an IP is reversible -- the whole IPv4 space "
+            "is 2^32 values and a reverse table is minutes of work",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return loaded
 
 
 settings = _load_or_exit()

@@ -1,0 +1,60 @@
+Module 04 BUILD -- API-key auth, owner scoping, rate limits
+Generated 2026-08-14 10:07 UTC
+
+=== authentication ===
+  GET /links       no key             401
+  GET /links       malformed key      401
+  GET /links       valid key A        200
+  POST /links      valid key A        201
+  GET /r/{code}    public, no key     302   (only route that stays public)
+
+=== authorization: owner scoping ===
+  GET /links/{id}  key A (owner)      200
+  GET /links/{id}  key B (not owner)  404   <- not 403
+  Recorded: decisions.module_04.not_owner_status = 404
+  A 403 confirms the id exists and turns the endpoint into an enumeration
+  oracle across tenants. No handler filters by tenant_id -- row-level
+  security does, so forgetting returns zero rows rather than everyone's.
+
+=== revocation (the reason API key was chosen over JWT) ===
+  key A revoked in the database    -> next request 401, no restart, no TTL wait
+  key A restored                   -> 200 again
+  last_used_at populated on use    -> an unused key is visibly revocable
+
+=== rate limits, measured ===
+  create      60/min per tenant : 70 sequential -> 60x201, 10x429, counter=70
+              Retry-After: 60 present on every 429
+              tenant B unaffected during A's 429s -> the key is the tenant
+  auth_fail   10/min per key_id : 14 attempts   -> 10x401, then 4x429
+  redirect   600/min per IP     : keyed by socket peer, NOT X-Forwarded-For
+  read       120/min per tenant
+
+  First run of the create test was inconclusive -- 12x201 and no 429s out of
+  65 -- and it was re-run rather than reported. The tally above is the clean
+  run. The earlier result was a harness artifact, not a limiter fault.
+
+=== BREAK/FIX: privilege excess on api_keys ===
+  Before (migration 0007): links rls=true, api_keys rls=false, and the app role
+  with NO tenant bound could SELECT every row -- key_id, tenant_id, secret_hash
+  for all tenants. Not reachable via any route; privilege excess, not a leak.
+
+  Why RLS cannot fix it: api_keys is read BEFORE a tenant is bound, because it is
+  the query that ESTABLISHES the tenant. A policy on app.tenant_id would return
+  zero rows and break authentication. The table that establishes identity is the
+  one table the identity mechanism cannot protect.
+
+  Fix (0008): verify_api_key(text) and touch_api_key(text), both SECURITY
+  DEFINER, EXECUTE revoked from PUBLIC then granted to upsk_app; SELECT and
+  UPDATE on api_keys revoked from upsk_app entirely. Same pattern as
+  resolve_link() for the public redirect -- one narrow audited elevation instead
+  of a readable table.
+
+  After:
+    direct SELECT on api_keys as upsk_app   InsufficientPrivilege
+    verify_api_key('unknown')               no row
+    verify_api_key(real key_id)             one row, that tenant only
+    no key / wrong secret                   401 / 401
+    valid key                               200, create 201
+    B reads A's link                        404
+    public redirect, no key                 302
+    last_used_at                            still updating via touch_api_key()

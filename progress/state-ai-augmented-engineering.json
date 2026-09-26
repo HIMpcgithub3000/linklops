@@ -1,0 +1,26 @@
+{
+  "bootcamp": {
+    "student": "Himanshu Sharma",
+    "skill": "ai-augmented-engineering",
+    "pack": "launchpad",
+    "product_scenario": "team-collaboration",
+    "scenario_note": "Fixed by the skill, not chosen. Unlike the Debugging and Production Readiness skills, this one does NOT fork the LinkOps checkpoint -- team collaboration (teams, roles, invites, comment threads, activity feed, audit log) is a different product. Recording that so nobody later assumes the api/ tree implements it.",
+    "relationship_to_existing_work": "The LinkOps service supplies the constraints I will feed as context rather than the code: RLS-enforced tenant isolation (handlers must not filter by tenant_id), required-no-default configuration, secrets never in errors, and controls that must be watched failing. Those transfer; the schema does not.",
+    "pretest": {
+      "self_rating": "strong",
+      "tool": "Claude Code, agent mode",
+      "stated_weakness": "Failures are not bad model outputs; they are accepting a plausible result without verifying it came from the thing that changed. Two instances this week: debugging a server that had never restarted, and trusting a .dockerignore that did not do what it claimed."
+    },
+    "progress": {
+      "module_01": {
+        "status": "in_progress",
+        "steps_completed": [
+          "pretest",
+          "scenario_pick"
+        ]
+      },
+      "next_module": 1,
+      "next_step": "context"
+    }
+  }
+}

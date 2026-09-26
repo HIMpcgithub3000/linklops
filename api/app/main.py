@@ -24,6 +24,7 @@ infrastructure is free reconnaissance.
 import logging
 import signal
 import time
+import traceback
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -33,8 +34,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import DBAPIError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import db, logging_config
+from app import db, logging_config, metrics
 from app.config import settings
 from app.routers import links, redirect
 
@@ -128,6 +130,59 @@ logging_config.configure(settings.LOG_LEVEL)
 log = logging.getLogger("api")
 
 
+def envelope(status_code: int, code: str, message: str, **extra) -> JSONResponse:
+    """One response shape for every error, 4xx and 5xx alike.
+
+    Three fields, and the third is the one that changed my mind. `code` is a
+    stable string clients may branch on -- stable meaning it outlives message
+    rewording, so a client that keys on it does not break when we improve the
+    prose. `message` is for a human and is deliberately never derived from the
+    exception. `request_id` is internal state, and it is the ONE piece worth
+    exposing: it is random, it means nothing without our logs, and it converts an
+    unactionable "it broke" into a searchable request.
+
+    Before this, the request id rode only in a header, which meant a person
+    looking at a failure in a UI never saw it -- so "quote me the id" assumed an
+    API consumer rather than an end user.
+
+    The codes stay deliberately coarse where distinguishing them would disclose.
+    Every unresolvable redirect is `not_found`; every one of the five auth
+    failure modes is `unauthenticated`. A finer code would re-create the oracle
+    the coarse HTTP status was chosen to avoid.
+    """
+    body = {"error": {"code": code, "message": message,
+                      "request_id": logging_config.request_id.get() or "-"}}
+    if extra:
+        body["error"].update(extra)
+    return JSONResponse(status_code=status_code, content=body)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+    """Route HTTPException through the same envelope.
+
+    Without this, handler-raised 401s and 404s keep FastAPI's {"detail": ...}
+    shape while everything else uses the envelope -- two formats again, which is
+    the exact inconsistency an earlier module cost me a whole finding to
+    discover.
+    """
+    codes = {400: "bad_request", 401: "unauthenticated", 403: "forbidden",
+             404: "not_found", 429: "rate_limited"}
+    code = codes.get(exc.status_code, "error")
+    message = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    response = envelope(exc.status_code, code, message)
+    for k, v in (exc.headers or {}).items():
+        response.headers[k] = v
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled(_: Request, exc: Exception) -> JSONResponse:
+    """Last resort. Logs with the traceback, returns nothing about it."""
+    log.error("unhandled exception", exc_info=exc)
+    return envelope(500, "internal_error", "Something went wrong on our side.")
+
+
 @app.middleware("http")
 async def request_logging(request: Request, call_next):
     """One request received line in, one request completed line out.
@@ -155,13 +210,21 @@ async def request_logging(request: Request, call_next):
         response.headers["X-Request-Id"] = rid
         return response
     finally:
+        elapsed = time.perf_counter() - started
+        # Route TEMPLATE, not the raw path, so /r/aB3xY9k and /r/Zq1mn8P share
+        # one metric series instead of minting one per short code (unbounded
+        # cardinality). Falls back to "unmatched" for 404s on no route, which is
+        # itself one bounded series rather than one per hostile URL probed.
+        route = request.scope.get("route")
+        template = getattr(route, "path", None) or "unmatched"
+        metrics.observe(request.method, template, status_code, elapsed)
         log.info(
             "request completed",
             extra={
                 "method": request.method,
                 "path": request.url.path,
                 "status": status_code,
-                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                "duration_ms": round(elapsed * 1000, 1),
             },
         )
 
@@ -213,10 +276,8 @@ async def rejected_request(_: Request, exc: RequestValidationError) -> JSONRespo
         {"field": ".".join(str(part) for part in err["loc"]), "reason": err["msg"]}
         for err in exc.errors()
     ]
-    return JSONResponse(
-        status_code=400,
-        content={"detail": "request rejected", "problems": problems},
-    )
+    return envelope(400, "validation_failed", "One or more fields were rejected.",
+                    problems=problems)
 
 
 @app.exception_handler(DBAPIError)
@@ -241,22 +302,63 @@ async def database_error(_: Request, exc: DBAPIError) -> JSONResponse:
         # aggregated -- a rising rate here is an application bug or an attack,
         # and either way the signal is the rate, not the individual line.
         log.warning("write refused by tenant policy", extra={"sqlstate": sqlstate})
-        return JSONResponse(
-            status_code=403,
-            content={"detail": "not permitted for this tenant"},
-        )
-    # ERROR with the traceback, because this is the branch where the response
-    # body is deliberately uninformative. The public answer is "internal error";
-    # the log is the only place the actual cause survives, so if it is not
-    # written here it is not written anywhere.
-    log.error("unhandled database error", exc_info=exc, extra={"sqlstate": sqlstate})
-    return JSONResponse(status_code=500, content={"detail": "internal error"})
+        return envelope(403, "forbidden", "Not permitted for this tenant.")
+    # ERROR, because this is the branch where the response body is deliberately
+    # uninformative: the log is the only place the cause survives, so if it is
+    # not written here it is not written anywhere.
+    #
+    # But NOT exc_info. A psycopg error renders as its full server message, and
+    # for a constraint violation that message carries a DETAIL line listing the
+    # entire failing row -- every column value, which on `invitations` means the
+    # invitee's email address, and on any future table means whatever that table
+    # holds. That is a copy of production data in the log stream, written by the
+    # error path rather than by anything anyone reviewed, and this stream is
+    # exported to customers.
+    #
+    # Nothing diagnostic is given up for that. Postgres already separates the
+    # two: `diag` exposes the failure as fields, and only `message_detail`
+    # carries row values -- so the constraint, the table and the primary message
+    # are logged and the values are not. The Python frames are kept separately
+    # via format_tb, which renders where the statement was issued without
+    # rendering the exception's text; that is the half of a traceback with
+    # diagnostic value here, and the half that cannot carry a row.
+    diag = getattr(exc.orig, "diag", None)
+    log.error(
+        "unhandled database error",
+        extra={
+            "sqlstate": sqlstate,
+            "exc_type": type(exc.orig).__name__,
+            "pg_message": getattr(diag, "message_primary", None),
+            "pg_constraint": getattr(diag, "constraint_name", None),
+            "pg_table": getattr(diag, "table_name", None),
+            "pg_column": getattr(diag, "column_name", None),
+            # Last frames only: the deep half is SQLAlchemy's own stack, which
+            # is identical for every error and says nothing about this one.
+            "frames": [f.rstrip() for f in traceback.format_tb(exc.__traceback__)[-4:]],
+        },
+    )
+    return envelope(500, "internal_error", "Something went wrong on our side.")
 
 
 @app.get("/health")
 def health() -> dict[str, Any]:
     """Liveness. Deliberately dependency-free -- see module docstring."""
     return {"ok": True}
+
+
+@app.get("/metrics")
+def metrics_endpoint() -> Response:
+    """Prometheus scrape target (Module 04). Pull-based: this returns the current
+    values and knows nothing about who reads them.
+
+    Unauthenticated like /health and /ready, and for the same reason a scraper
+    cannot hold a credential -- but that means the label set is a disclosure
+    surface, which is exactly why `path` is the route template, not the raw URL:
+    the metric names routes this service has, never the specific ids or codes a
+    request carried. No metric here reveals a tenant, a code, or a payload.
+    """
+    payload, content_type = metrics.render()
+    return Response(content=payload, media_type=content_type)
 
 
 @app.get("/ready")

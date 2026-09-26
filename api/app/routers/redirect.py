@@ -19,19 +19,19 @@ import logging
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app import redis_client
+from app import breaker, cache, ratelimit
 from app.db import get_public_session
-from app.services import links_service
+from app.services import clicks, links_service
 
 router = APIRouter(tags=["redirect"])
 
 logger = logging.getLogger(__name__)
 
 
-def enqueue_click(link_id: uuid.UUID) -> None:
+def enqueue_click(payload: str) -> None:
     """Hand the click to the analytics worker, and never fail the redirect for it.
 
     A Redis LPUSH, not a database INSERT. System Design Module 03 deliberately
@@ -48,10 +48,11 @@ def enqueue_click(link_id: uuid.UUID) -> None:
     rather than silent -- an undercount nobody can see is worse than one
     everybody can.
     """
-    try:
-        redis_client.client.lpush(redis_client.ANALYTICS_QUEUE, str(link_id))
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("analytics enqueue failed, click not counted: %s", type(exc).__name__)
+    # Through the circuit breaker (Module 06): a Redis outage trips it after a
+    # few failures, and every subsequent redirect then drops its click instantly
+    # without a doomed connection attempt, instead of paying that cost on the hot
+    # path for the whole outage. breaker.enqueue never raises.
+    breaker.enqueue(payload)
 
 # Shape-checked before it reaches the database. Not a security control -- the
 # lookup is parameterised, so a hostile code is a failed match, not an injection
@@ -77,6 +78,7 @@ CODE_PATTERN = re.compile(r"^[A-Za-z0-9]{7,32}$")
 
 @router.get("/r/{code}", status_code=status.HTTP_302_FOUND)
 def redirect(
+    request: Request,
     response: Response,
     # No min_length/max_length here on purpose. Declaring them would make a
     # malformed code a 400 while an unknown one is a 404, and that difference is
@@ -96,10 +98,40 @@ def redirect(
     server. 301 is only correct for a destination that is immutable, and every
     field resolve_link() checks is mutable by design.
     """
+    ratelimit.check("redirect", ratelimit.client_ip(request))
+
     if not CODE_PATTERN.match(code):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 
-    resolved = links_service.resolve_code(session, code)
+    # Cache-aside, per the Module 06 decision. Read cache, fall back to the
+    # database on a miss, populate on the way out -- and treat a Redis outage as
+    # a permanent miss, so this endpoint keeps working at database speed rather
+    # than failing for a dependency it does not need.
+    #
+    # Only *resolvable* codes are cached. A negative result is deliberately not
+    # stored: an unknown code is usually a prober, so caching negatives spends
+    # memory on hostile traffic, and the one legitimate case -- a code created a
+    # moment ago -- is exactly the one a negative entry would break, by holding a
+    # 404 over a link that now exists. Rate limiting, not the cache, is what
+    # bounds the cost of enumeration here.
+    source = "hit"
+    resolved = cache.get_redirect_target(code)
+    if resolved is None:
+        source = "miss"
+
+        def load() -> tuple[uuid.UUID, str] | None:
+            # One line per actual database read, which is the only way a herd is
+            # countable. "cache: miss" cannot show it: under a stampede every
+            # request misses, and the question is how many of those misses
+            # reached Postgres -- one, or all of them.
+            logger.info("redirect cache fill", extra={"code_len": len(code)})
+            found = links_service.resolve_code(session, code)
+            if found is not None:
+                cache.set_redirect_target(code, found[0], found[1])
+            return found
+
+        resolved = cache.fill_once(code, load)
+
     if resolved is None:
         # One response for every unresolvable reason: unknown code, expired,
         # disabled, suspended tenant. Distinguishing them would confirm which
@@ -108,7 +140,20 @@ def redirect(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
 
     link_id, long_url = resolved
-    enqueue_click(link_id)
+
+    # The counter that makes a cache claim checkable. Without it "the cache is
+    # working" is an assertion about a system whose whole purpose is to be
+    # invisible when it works -- the response is byte-identical either way, so a
+    # hit and a miss are indistinguishable from outside. One field on the line
+    # that already exists, rather than a second line: this is the highest-traffic
+    # route in the product and the completion line is already guaranteed.
+    logger.info("redirect resolved", extra={"cache": source})
+
+    # Built before the push and never from inside the except: the payload
+    # carries a minted event_id and clicked_at, and those must be the same on
+    # every delivery of this click for the worker's ON CONFLICT to recognise a
+    # replay. Minting them at retry time would make every retry a new event.
+    enqueue_click(clicks.build_event(link_id, request, ratelimit.client_ip(request)))
 
     # Location is safe to set from stored data only because url_policy rejected
     # control characters at write time -- a stored CR or LF here would be header

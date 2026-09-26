@@ -3,3 +3,7 @@
 # someone put in a fixture, and reducing what an image can do beats reducing
 # what it weighs.
 ruff>=0.6
+# The integration suite (Module 09) runs here and in CI. No httpx / TestClient:
+# the tests drive service functions and route handlers against a real bound
+# session, so a network client would add a dependency and prove nothing extra.
+pytest>=8

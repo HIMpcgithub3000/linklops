@@ -1,0 +1,18 @@
+{
+  "bootcamp": {
+    "student": "Himanshu Sharma",
+    "skill": "technical-communication",
+    "pack": "launchpad",
+    "product_scenario": "analytics",
+    "note": "Default scenario A. Where a real example is stronger than an invented one I will draw on decisions from the LinkOps service in this workspace -- RLS drift, a credential baked into an image layer, offset-pagination drift under concurrent writes -- because writing about a decision I actually made and can show evidence for produces better communication practice than narrating a fictional one."
+  },
+  "progress": {
+    "module_01": {
+      "status": "in_progress",
+      "steps_completed": [
+        "pretest",
+        "scenario_pick"
+      ]
+    }
+  }
+}

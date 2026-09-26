@@ -1,0 +1,14 @@
+Module 05 BUILD -- error envelope
+Generated 2026-08-15 13:27 UTC
+
+  401  {"error":{"code":"unauthenticated","message":"invalid or missing API key","request_id":"r-84caaf32"}}
+  404  {"error":{"code":"not_found","message":"not found","request_id":"r-a37f3183"}}
+  400  {"error":{"code":"validation_failed","message":"One or more fields were rejected.","request_id":"r-c3f5f716","problems":[...]}}
+
+  X-Request-Id header r-76b65a22 == body error.request_id r-76b65a22
+  leak scan across all error bodies (traceback|SQL|role name): 0 hits
+
+  Codes are deliberately COARSE where a finer one would disclose:
+  every unresolvable redirect is not_found; all five auth failure modes are
+  unauthenticated. A specific code would rebuild the oracle the coarse HTTP
+  status was chosen to avoid.

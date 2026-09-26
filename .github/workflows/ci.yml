@@ -16,28 +16,39 @@ env:
 
 jobs:
   verify:
-    name: lint + controls
+    name: lint + controls + tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Two of the four controls read pg_class and pg_policies, so CI needs a real
-    # Postgres rather than a mock. That is deliberate: check_rls.py exists to
-    # assert that the LIVE schema still matches the migrations, and a mocked
-    # database would assert only that the mock matches the migrations, which is
-    # a tautology. The one control worth having is the one that talks to a real
-    # server.
+    # Controls read pg_class and pg_policies and the pytest suite exercises RLS
+    # against a bound tenant, so CI needs a real Postgres rather than a mock:
+    # check_rls.py exists to assert the LIVE schema still matches the migrations,
+    # and a mocked database would assert only that the mock matches them. Redis
+    # is here for the cache and analytics controls added across Modules 06-07,
+    # which drive the real client rather than a fake.
+    #
+    # The database is named linkops_test, not linkops. That is what the pytest
+    # safety guard (Module 09) checks for: a suite that writes must never be
+    # pointed at a name that could be production, and CI's ephemeral service
+    # container is honestly a test database, so it should say so.
     services:
       postgres:
         image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: linkops
+          POSTGRES_DB: linkops_test
         ports: ["5432:5432"]
         # Without this the first migration races the server's startup and fails
         # with "the database system is starting up".
         options: >-
-          --health-cmd "pg_isready -U postgres -d linkops"
+          --health-cmd "pg_isready -U postgres -d linkops_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 10
 
     steps:
@@ -66,19 +77,20 @@ jobs:
       - name: Run migrations
         working-directory: api
         env:
-          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops_test
         run: alembic upgrade head
 
-      # The four standing controls ARE the test suite for this project. Each
-      # asserts a property that was violated at least once during development,
-      # and each has been watched failing.
-      - name: Controls
+      # One env block for every step that talks to the services, so the two URLs
+      # cannot drift between the controls and the tests. CLICK_IP_SALT is set
+      # because ENVIRONMENT is development here -- in staging or production the
+      # config guard makes an empty salt a refused boot.
+      - name: Standing controls
         working-directory: api
-        env:
+        env: &db_env
           PORT: "8000"
           ENVIRONMENT: development
-          DATABASE_URL: postgresql+psycopg://upsk_app:upsk_app_pw@localhost:5432/linkops
-          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops
+          DATABASE_URL: postgresql+psycopg://upsk_app:upsk_app_pw@localhost:5432/linkops_test
+          MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/linkops_test
           REDIS_URL: redis://localhost:6379
           PUBLIC_BASE_URL: http://localhost:8000
           LOG_LEVEL: info
@@ -86,11 +98,32 @@ jobs:
           JWT_SECRET: ""
           API_KEY_A: ""
           API_KEY_B: ""
+          CLICK_IP_SALT: ci-not-a-secret
+        # Every control, all green. check_tenant_coverage joined once migration
+        # 0012 gave the teams tables RLS (AI-Aug review finding F2) -- it had been
+        # held out only because it exited 1 on that documented gap, and a
+        # known-red control must never gate a pipeline. Now that the gap is
+        # closed, it is exactly the gate that keeps it closed: add a
+        # tenant-scoped table without a policy and this fails.
         run: |
           python scripts/check_url_policy.py
           python scripts/check_log_injection.py
+          python scripts/check_log_pii.py
           python scripts/check_rls.py
+          python scripts/check_tenant_coverage.py
+          python scripts/check_cache_scoping.py
+          python scripts/check_cache_behaviour.py
+          python scripts/check_analytics_pipeline.py
+          python scripts/check_readiness_contract.py
           python scripts/audit_stored_destinations.py
+
+      # The pytest suite runs against the same services. The Module 09 safety
+      # guard passes here because the database is named linkops_test -- no
+      # override needed, which is the point of naming it honestly.
+      - name: Tests
+        working-directory: api
+        env: *db_env
+        run: pytest -q
 
   image:
     name: build + publish

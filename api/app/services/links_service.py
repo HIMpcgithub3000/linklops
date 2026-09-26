@@ -14,7 +14,7 @@ import base64
 import binascii
 import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -230,6 +230,154 @@ def get_link(session: Session, link_id: uuid.UUID) -> Link | None:
     enumerating other tenants' identifiers.
     """
     return session.get(Link, link_id)
+
+
+# The sort allowlist. This is the one input in the search API that structurally
+# cannot be a bound parameter: a sort column is an identifier, not a value, so
+# it is the single place caller input would otherwise be concatenated into SQL.
+# Mapping a fixed set of public names to fixed SQL fragments means an unknown
+# name is refused rather than interpolated -- and the fragments are literals in
+# this file, never built from the request.
+#
+# The public names are also deliberately not the column names. `clicks` is
+# assembled from the analytics rollup, and `created` is `created_at`; keeping
+# the API's vocabulary separate from the schema's means a column rename is not
+# a breaking API change.
+SORT_COLUMNS = {
+    "created": "l.created_at",
+    "clicks": "COALESCE(a.clicks, 0)",
+}
+SORT_DIRECTIONS = {"asc": "ASC", "desc": "DESC"}
+MAX_QUERY_LENGTH = 128
+
+
+def search_links(
+    session: Session,
+    *,
+    q: str | None,
+    tag: str | None,
+    sort: str,
+    direction: str,
+    page: int,
+    page_size: int,
+) -> tuple[list[dict], int]:
+    """Search a tenant's links. Returns (rows, total_matching).
+
+    Tenant scoping is the database's: every statement here runs on the bound
+    session, so the RLS predicate on `links` is appended by Postgres. There is
+    deliberately no `WHERE tenant_id = ...` in this function -- adding one would
+    imply the isolation depends on remembering to write it.
+
+    The click count comes from the `analytics` rollup rather than from
+    click_events, for the same reason the analytics endpoint does: raw events
+    are purged on a retention schedule and the rollup is not, so sorting by
+    clicks must not silently reorder as the purge runs.
+
+    Two things are bounded before the query is built rather than after:
+    `page_size` is clamped, and `q` is truncated. An unbounded search term is a
+    cost parameter the caller controls -- a megabyte-long string still has to be
+    trigram-matched against every candidate row.
+    """
+    if sort not in SORT_COLUMNS:
+        raise ValueError(f"sort must be one of {sorted(SORT_COLUMNS)}")
+    if direction not in SORT_DIRECTIONS:
+        raise ValueError(f"direction must be one of {sorted(SORT_DIRECTIONS)}")
+
+    page = max(1, page)
+    page_size = max(1, min(page_size, MAX_PAGE_SIZE))
+    params: dict[str, object] = {}
+    where = ["TRUE"]
+
+    if q:
+        # ILIKE with a bound parameter. The wildcards are added here rather than
+        # by the caller so that a caller cannot supply their own pattern -- '%'
+        # and '_' inside the term are escaped below, so a search for "50%" means
+        # the literal characters and not "anything".
+        term = q.strip()[:MAX_QUERY_LENGTH]
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        where.append("l.long_url ILIKE :q ESCAPE '\\'")
+        params["q"] = f"%{escaped}%"
+
+    if tag:
+        # Containment against the GIN index on tags, not `= ANY`, so the index
+        # is usable. Normalised the same way create does, or a tag stored as
+        # "Reports" is unfindable by "reports".
+        where.append("l.tags @> ARRAY[:tag]::text[]")
+        params["tag"] = tag.strip()
+
+    predicate = " AND ".join(where)
+
+    # `clicks` is a correlated aggregate rather than a join to avoid multiplying
+    # link rows by rollup rows before the LIMIT. The subquery reads `analytics`,
+    # which carries its own RLS policy scoped through links (migration 0010), so
+    # it cannot see another tenant's counts even here.
+    base = f"""
+        FROM links l
+        LEFT JOIN LATERAL (
+            SELECT COALESCE(SUM(count), 0) AS clicks
+            FROM analytics an WHERE an.link_id = l.id
+        ) a ON TRUE
+        WHERE {predicate}
+    """  # noqa: S608 - `predicate` is assembled from literals above, never from input
+
+    total = session.execute(text(f"SELECT COUNT(*) {base}"), params).scalar() or 0  # noqa: S608
+
+    order = f"{SORT_COLUMNS[sort]} {SORT_DIRECTIONS[direction]}"
+    params["limit"] = page_size
+    params["offset"] = (page - 1) * page_size
+    rows = session.execute(
+        text(
+            f"""
+            SELECT l.id, l.code, l.long_url, l.created_at, l.expires_at, l.tags,
+                   COALESCE(a.clicks, 0) AS clicks
+            {base}
+            -- id DESC is the tiebreaker that makes the order total. Without it
+            -- two links sharing a created_at, or two links with equal click
+            -- counts, can swap places between two executions of the same query
+            -- -- and a row that moves across a page boundary is served twice or
+            -- not at all. This is the same bug the cursor listing was fixed for.
+            ORDER BY {order}, l.id DESC
+            LIMIT :limit OFFSET :offset
+            """  # noqa: S608 - `order` comes from the allowlist above
+        ),
+        params,
+    ).all()
+
+    return [dict(row._mapping) for row in rows], int(total)
+
+
+def update_link(
+    session: Session,
+    link_id: uuid.UUID,
+    *,
+    long_url: str | None = None,
+    disabled: bool | None = None,
+) -> Link | None:
+    """Mutate a link's resolution inputs. Returns None if the tenant cannot see it.
+
+    Reached through the tenant-bound session, so a link belonging to another
+    tenant is simply not found -- the same shape as get_link, and the reason
+    this needs no ownership check of its own.
+
+    Deliberately does NOT invalidate the cache. That call belongs to the router,
+    after the transaction commits: invalidating here would drop the cache entry
+    while the new value is still uncommitted, so a concurrent redirect could
+    read the *old* row from the database and refill the cache with it. The
+    result is a cache that is stale precisely because it was invalidated, which
+    is the kind of bug that survives a long time because the invalidation is
+    right there in the diff.
+    """
+    link = get_link(session, link_id)
+    if link is None:
+        return None
+
+    if long_url is not None:
+        link.long_url = long_url
+    if disabled is not None:
+        link.disabled_at = datetime.now(UTC) if disabled else None
+
+    session.flush()
+    return link
 
 
 def resolve_code(session: Session, code: str) -> tuple[uuid.UUID, str] | None:

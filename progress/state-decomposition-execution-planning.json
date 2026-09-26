@@ -1,0 +1,20 @@
+{
+  "bootcamp": {
+    "student": "Himanshu Sharma",
+    "skill": "decomposition-execution-planning",
+    "pack": "launchpad",
+    "product_scenario": "skillswap",
+    "scenario_note": "Fixed by the skill. SkillSwap is a two-sided marketplace and is a NEW domain -- it does not fork the LinkOps checkpoint the way Debugging and Production Readiness did. Artifacts are planning documents rather than code.",
+    "progress": {
+      "module_01": {
+        "status": "in_progress",
+        "steps_completed": [
+          "pretest",
+          "scenario_pick"
+        ]
+      },
+      "next_module": 1,
+      "next_step": "context"
+    }
+  }
+}
