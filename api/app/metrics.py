@@ -43,7 +43,10 @@ from prometheus_client import (
 # the intent explicit. process_resident_memory_bytes is the one to alert on: a
 # line that trends up instead of plateauing is a leak, and the earliest place to
 # see it is here rather than in the container getting OOM-killed.
-ProcessCollector()
+try:
+    ProcessCollector()
+except ValueError:
+    pass
 
 REQUESTS = Counter(
     "http_requests_total",
