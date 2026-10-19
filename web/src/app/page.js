@@ -25,9 +25,6 @@ import {
   ChevronUp,
   RefreshCw,
   Clock,
-  Tag,
-  Share2,
-  Lock,
   Download,
   X,
 } from "lucide-react";
@@ -36,9 +33,9 @@ export default function Home() {
   // State
   const [links, setLinks] = useState([]);
   const [kpis, setKpis] = useState({
-    totalLinks: 4,
-    totalClicks: 342,
-    activeLinks: 4,
+    totalLinks: 5,
+    totalClicks: 345,
+    activeLinks: 5,
     uptimePercent: "99.99%",
     avgLatencyMs: "3.2ms",
   });
@@ -147,8 +144,8 @@ export default function Home() {
         width: 360,
         margin: 2,
         color: {
-          dark: "#0F0728",
-          light: "#FAF5FF",
+          dark: "#0F172A",
+          light: "#FFFFFF",
         },
       });
       setQrModal({ open: true, url: shortUrl, code: link.code, dataUrl });
@@ -196,18 +193,18 @@ export default function Home() {
   const allTags = ["all", ...new Set(links.flatMap((l) => l.tags || []))];
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900">
       {/* Top Navigation */}
-      <header className="sticky top-0 z-50 border-b border-purple-500/15 bg-[#08040F]/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur-md shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 via-purple-500 to-indigo-500 flex items-center justify-center purple-glow-sm shadow-inner">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shadow-xs">
               <Link2 className="w-5 h-5 text-white transform -rotate-45" />
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight text-white flex items-center gap-1.5">
-                Link<span className="text-purple-400">Ops</span>
-                <span className="px-1.5 py-0.5 text-[10px] uppercase font-semibold bg-purple-500/20 text-purple-300 rounded border border-purple-500/30">
+              <span className="font-bold text-xl tracking-tight text-slate-900 flex items-center gap-1.5">
+                Link<span className="text-blue-600">Ops</span>
+                <span className="px-1.5 py-0.5 text-[10px] uppercase font-semibold bg-blue-50 text-blue-700 rounded border border-blue-200">
                   v1.0 Edge
                 </span>
               </span>
@@ -218,40 +215,40 @@ export default function Home() {
           <nav className="hidden md:flex items-center space-x-1">
             <button
               onClick={() => setActiveTab("links")}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeTab === "links"
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                  ? "bg-slate-100 text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               }`}
             >
               Shortener & Links
             </button>
             <button
               onClick={() => setActiveTab("analytics")}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeTab === "analytics"
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                  ? "bg-slate-100 text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               }`}
             >
               Real-Time Analytics
             </button>
             <button
               onClick={() => setActiveTab("security")}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeTab === "security"
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                  ? "bg-slate-100 text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               }`}
             >
               Security Inspector
             </button>
             <button
               onClick={() => setActiveTab("api")}
-              className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 activeTab === "api"
-                  ? "bg-purple-600/20 text-purple-300 border border-purple-500/30"
-                  : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                  ? "bg-slate-100 text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
               }`}
             >
               API Playground
@@ -260,17 +257,17 @@ export default function Home() {
 
           {/* Status & Actions */}
           <div className="flex items-center space-x-3">
-            <div className="hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span>3.2ms Edge Latency</span>
             </div>
             <a
               href="https://github.com/HIMpcgithub3000/linklops"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/30 text-purple-200 transition-all hover:scale-[1.02]"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all"
             >
-              <Terminal className="w-3.5 h-3.5 text-purple-400" />
+              <Terminal className="w-3.5 h-3.5 text-slate-300" />
               <span>GitHub Repo</span>
             </a>
           </div>
@@ -280,45 +277,45 @@ export default function Home() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {/* Hero Section */}
-        <div className="text-center space-y-4 max-w-3xl mx-auto pt-4">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/25 text-purple-300 text-xs font-medium">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+        <div className="text-center space-y-3.5 max-w-3xl mx-auto pt-4">
+          <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium shadow-2xs">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
             <span>PostgreSQL Row-Level Security & Redis Single-Flight Caching</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-tight">
             Shorten URLs with <br />
-            <span className="text-gradient-purple">Sub-5ms Edge Redirects</span>
+            <span className="text-blue-600">Sub-5ms Edge Redirects</span>
           </h1>
 
-          <p className="text-sm sm:text-base text-gray-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-600 max-w-2xl mx-auto leading-relaxed">
             Enterprise multi-tenant link management. Built with database-level tenant isolation,
             adversarial SSRF protection, and non-blocking asynchronous click analytics.
           </p>
         </div>
 
         {/* Shortener Console Box */}
-        <div className="max-w-3xl mx-auto glass-panel rounded-2xl p-4 sm:p-6 purple-glow">
+        <div className="max-w-3xl mx-auto bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-md">
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="relative flex flex-col sm:flex-row gap-2.5">
               <div className="relative flex-1">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-400/70">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Globe className="w-4 h-4" />
                 </div>
                 <input
                   type="url"
                   required
-                  placeholder="Paste your destination link (e.g. https://github.com/HIMpcgithub3000/linklops)..."
+                  placeholder="Paste destination link (e.g. https://github.com/HIMpcgithub3000/linklops)..."
                   value={longUrl}
                   onChange={(e) => setLongUrl(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3.5 rounded-xl glass-input text-sm text-gray-100 placeholder-gray-500 font-sans"
+                  className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100 transition-all"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading || !longUrl}
-                className="px-6 py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-6 py-3.5 rounded-xl font-semibold text-sm text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -336,8 +333,8 @@ export default function Home() {
 
             {/* Error Message */}
             {errorMsg && (
-              <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center space-x-2">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
@@ -347,7 +344,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-xs text-purple-400 hover:text-purple-300 flex items-center space-x-1 font-medium cursor-pointer"
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1 font-semibold cursor-pointer"
               >
                 <span>{showAdvanced ? "Hide Advanced Parameters" : "Customize Alias, Tags & Expiration"}</span>
                 {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -356,13 +353,13 @@ export default function Home() {
 
             {/* Advanced Controls Body */}
             {showAdvanced && (
-              <div className="pt-3 border-t border-purple-500/10 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Custom Alias (Slug)
                   </label>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-gray-500 font-mono">
+                    <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-slate-400 font-mono">
                       /r/
                     </span>
                     <input
@@ -370,13 +367,13 @@ export default function Home() {
                       placeholder="my-link"
                       value={customCode}
                       onChange={(e) => setCustomCode(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-lg glass-input text-xs text-gray-200 placeholder-gray-600 font-mono"
+                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 placeholder-slate-400 font-mono focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Tags (Comma Separated)
                   </label>
                   <input
@@ -384,18 +381,18 @@ export default function Home() {
                     placeholder="marketing, launch"
                     value={tagsInput}
                     onChange={(e) => setTagsInput(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg glass-input text-xs text-gray-200 placeholder-gray-600"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                     Expiration Window
                   </label>
                   <select
                     value={expiresHours}
                     onChange={(e) => setExpiresHours(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg glass-input text-xs text-gray-200 bg-[#0D071A]"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value="">Never Expires (Permanent)</option>
                     <option value="24">Expires in 24 Hours</option>
@@ -409,24 +406,24 @@ export default function Home() {
 
           {/* Success Result Banner */}
           {createdLink && (
-            <div className="mt-5 p-4 rounded-xl bg-purple-900/30 border border-purple-500/40 space-y-3">
+            <div className="mt-5 p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-purple-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-semibold text-blue-900 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600" />
                   Short URL Created Successfully!
                 </span>
                 <button
                   onClick={() => setCreatedLink(null)}
-                  className="text-gray-400 hover:text-gray-200 text-xs"
+                  className="text-slate-500 hover:text-slate-700 text-xs cursor-pointer font-medium"
                 >
                   Dismiss
                 </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-black/40 p-3 rounded-lg border border-purple-500/20">
-                <div className="flex items-center space-x-2 text-sm font-mono text-purple-200 truncate w-full sm:w-auto">
-                  <Globe className="w-4 h-4 text-purple-400 shrink-0" />
-                  <span className="truncate">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-lg border border-blue-200/80 shadow-2xs">
+                <div className="flex items-center space-x-2 text-sm font-mono text-slate-800 truncate w-full sm:w-auto">
+                  <Globe className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span className="truncate font-semibold">
                     {typeof window !== "undefined" ? window.location.origin : ""}/r/{createdLink.code}
                   </span>
                 </div>
@@ -439,7 +436,7 @@ export default function Home() {
                         "new-link"
                       )
                     }
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white flex items-center space-x-1.5 transition-all cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-1.5 transition-all cursor-pointer shadow-2xs"
                   >
                     {copiedId === "new-link" ? (
                       <>
@@ -456,7 +453,7 @@ export default function Home() {
 
                   <button
                     onClick={() => handleOpenQR(createdLink)}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 text-gray-200 flex items-center space-x-1 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center space-x-1 cursor-pointer border border-slate-200"
                   >
                     <QrCode className="w-3.5 h-3.5" />
                     <span>QR</span>
@@ -466,10 +463,10 @@ export default function Home() {
                     href={`/r/${createdLink.code}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/10 hover:bg-white/20 text-gray-200 flex items-center space-x-1"
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center space-x-1 border border-slate-200"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
                     <span>Visit</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
                   </a>
                 </div>
               </div>
@@ -479,63 +476,63 @@ export default function Home() {
 
         {/* System KPIs Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="glass-panel p-4 rounded-xl border border-purple-500/20">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+          <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
               <span>Total Active Links</span>
-              <Layers className="w-4 h-4 text-purple-400" />
+              <Layers className="w-4 h-4 text-blue-600" />
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">{kpis.totalLinks}</div>
-            <div className="text-[11px] text-purple-300 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">{kpis.totalLinks}</div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
               <span>Multi-tenant partitioned</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-xl border border-purple-500/20">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+          <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
               <span>Total Redirect Clicks</span>
-              <Activity className="w-4 h-4 text-indigo-400" />
+              <Activity className="w-4 h-4 text-indigo-600" />
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">{kpis.totalClicks}</div>
-            <div className="text-[11px] text-indigo-300 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">{kpis.totalClicks}</div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
               <span>Asynchronous idempotency</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-xl border border-purple-500/20">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+          <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
               <span>Redirect Latency</span>
-              <Zap className="w-4 h-4 text-amber-400" />
+              <Zap className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">{kpis.avgLatencyMs}</div>
-            <div className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">{kpis.avgLatencyMs}</div>
+            <div className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span>Redis single-flight hit</span>
             </div>
           </div>
 
-          <div className="glass-panel p-4 rounded-xl border border-purple-500/20">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+          <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-xs">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-500 mb-1">
               <span>Tenant Isolation</span>
-              <Shield className="w-4 h-4 text-emerald-400" />
+              <Shield className="w-4 h-4 text-emerald-600" />
             </div>
-            <div className="text-2xl font-bold text-white tracking-tight">100% RLS</div>
-            <div className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">100% RLS</div>
+            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               <span>PostgreSQL engine enforced</span>
             </div>
           </div>
         </div>
 
         {/* Tab Selection Area */}
-        <div className="border-b border-purple-500/15 flex items-center space-x-6 text-sm font-medium">
+        <div className="border-b border-slate-200 flex items-center space-x-6 text-sm font-medium">
           <button
             onClick={() => setActiveTab("links")}
             className={`pb-3 border-b-2 transition-all flex items-center space-x-2 cursor-pointer ${
               activeTab === "links"
-                ? "border-purple-400 text-purple-300"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <Globe className="w-4 h-4" />
@@ -546,8 +543,8 @@ export default function Home() {
             onClick={() => setActiveTab("analytics")}
             className={`pb-3 border-b-2 transition-all flex items-center space-x-2 cursor-pointer ${
               activeTab === "analytics"
-                ? "border-purple-400 text-purple-300"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <BarChart3 className="w-4 h-4" />
@@ -558,8 +555,8 @@ export default function Home() {
             onClick={() => setActiveTab("security")}
             className={`pb-3 border-b-2 transition-all flex items-center space-x-2 cursor-pointer ${
               activeTab === "security"
-                ? "border-purple-400 text-purple-300"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <Shield className="w-4 h-4" />
@@ -570,8 +567,8 @@ export default function Home() {
             onClick={() => setActiveTab("api")}
             className={`pb-3 border-b-2 transition-all flex items-center space-x-2 cursor-pointer ${
               activeTab === "api"
-                ? "border-purple-400 text-purple-300"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-slate-500 hover:text-slate-800"
             }`}
           >
             <Terminal className="w-4 h-4" />
@@ -585,27 +582,27 @@ export default function Home() {
             {/* Filter and Search Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 absolute inset-y-0 left-3 my-auto text-gray-500" />
+                <Search className="w-4 h-4 absolute inset-y-0 left-3 my-auto text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search code, destination, or tags..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs text-gray-200 placeholder-gray-500"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
 
               {/* Tag filters */}
               <div className="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                <Filter className="w-3.5 h-3.5 text-gray-400 shrink-0 mr-1" />
+                <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0 mr-1" />
                 {allTags.map((tag) => (
                   <button
                     key={tag}
                     onClick={() => setSelectedTag(tag)}
-                    className={`px-2.5 py-1 rounded-lg text-xs capitalize transition-all cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs capitalize transition-all cursor-pointer font-medium ${
                       selectedTag === tag
-                        ? "bg-purple-600/30 text-purple-200 border border-purple-500/40"
-                        : "bg-white/5 text-gray-400 hover:text-gray-200"
+                        ? "bg-slate-900 text-white shadow-2xs"
+                        : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     {tag}
@@ -614,7 +611,7 @@ export default function Home() {
                 <button
                   onClick={fetchLinks}
                   disabled={refreshing}
-                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 ml-1 cursor-pointer"
+                  className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 ml-1 cursor-pointer"
                   title="Refresh links"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
@@ -631,32 +628,32 @@ export default function Home() {
                 return (
                   <div
                     key={link.id}
-                    className="glass-panel p-5 rounded-2xl border border-purple-500/15 hover:border-purple-500/30 transition-all flex flex-col justify-between space-y-4"
+                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col justify-between space-y-4"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <span className="font-mono text-sm font-bold text-purple-300 bg-purple-500/20 px-2.5 py-1 rounded-md border border-purple-500/30">
+                          <span className="font-mono text-sm font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
                             /r/{link.code}
                           </span>
-                          <span className="flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             Active
                           </span>
                         </div>
 
-                        <div className="flex items-center space-x-1.5 text-xs text-gray-400 bg-black/30 px-2.5 py-1 rounded-full border border-purple-500/10">
-                          <Activity className="w-3.5 h-3.5 text-purple-400" />
-                          <span className="font-semibold text-white">{link.clicks || 0}</span>
+                        <div className="flex items-center space-x-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200">
+                          <Activity className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="font-bold text-slate-900">{link.clicks || 0}</span>
                           <span>clicks</span>
                         </div>
                       </div>
 
                       <div className="pt-1">
-                        <h3 className="text-sm font-semibold text-gray-100 truncate">
+                        <h3 className="text-sm font-semibold text-slate-900 truncate">
                           {link.title || link.longUrl}
                         </h3>
-                        <p className="text-xs text-gray-500 font-mono truncate mt-0.5">
+                        <p className="text-xs text-slate-500 font-mono truncate mt-0.5">
                           {link.longUrl}
                         </p>
                       </div>
@@ -667,7 +664,7 @@ export default function Home() {
                           {link.tags.map((t) => (
                             <span
                               key={t}
-                              className="text-[10px] px-2 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-500/20"
+                              className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-medium"
                             >
                               #{t}
                             </span>
@@ -677,25 +674,25 @@ export default function Home() {
                     </div>
 
                     {/* Action Toolbar */}
-                    <div className="pt-3 border-t border-purple-500/10 flex items-center justify-between text-xs">
-                      <div className="text-[11px] text-gray-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
+                        <Clock className="w-3 h-3 text-slate-400" />
                         <span>{new Date(link.createdAt).toLocaleDateString()}</span>
                       </div>
 
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleCopy(shortUrl, link.id)}
-                          className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-purple-600/20 hover:border-purple-500/40 border border-transparent text-gray-300 hover:text-purple-200 transition-all flex items-center space-x-1 cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium transition-all flex items-center space-x-1 cursor-pointer shadow-2xs"
                         >
                           {copiedId === link.id ? (
                             <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-emerald-400">Copied</span>
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span className="text-emerald-700 font-semibold">Copied</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3 h-3" />
+                              <Copy className="w-3 h-3 text-slate-500" />
                               <span>Copy</span>
                             </>
                           )}
@@ -703,17 +700,17 @@ export default function Home() {
 
                         <button
                           onClick={() => handleOpenQR(link)}
-                          className="px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center space-x-1 cursor-pointer"
+                          className="px-2 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium transition-all flex items-center space-x-1 cursor-pointer shadow-2xs"
                           title="Generate QR Code"
                         >
-                          <QrCode className="w-3.5 h-3.5" />
+                          <QrCode className="w-3.5 h-3.5 text-slate-500" />
                         </button>
 
                         <a
                           href={`/r/${link.code}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-300 flex items-center space-x-1 transition-all"
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold flex items-center space-x-1 transition-all"
                         >
                           <span>Visit</span>
                           <ExternalLink className="w-3 h-3" />
@@ -729,22 +726,22 @@ export default function Home() {
 
         {/* TAB 2: Telemetry & Hourly Charts */}
         {activeTab === "analytics" && (
-          <div className="glass-panel p-6 rounded-2xl space-y-6">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-purple-400" />
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-blue-600" />
                 Hourly Traffic Distribution & Analytics
               </h2>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Aggregated by background worker using idempotent PostgreSQL CTEs into hourly buckets.
               </p>
             </div>
 
             {/* Simulated Chart Bars */}
-            <div className="p-4 rounded-xl bg-black/40 border border-purple-500/15 space-y-4">
-              <div className="flex items-center justify-between text-xs text-gray-400 font-medium">
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between text-xs text-slate-600 font-semibold">
                 <span>Recent 24-Hour Velocity</span>
-                <span className="text-purple-300">Peak: 38 clicks/hr</span>
+                <span className="text-blue-700">Peak: 38 clicks/hr</span>
               </div>
 
               <div className="h-44 flex items-end gap-2 pt-6">
@@ -752,13 +749,13 @@ export default function Home() {
                   <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
                     <div
                       style={{ height: `${(val / 45) * 100}%` }}
-                      className="w-full bg-gradient-to-t from-purple-700 via-purple-500 to-indigo-400 rounded-t-md transition-all group-hover:brightness-125 relative"
+                      className="w-full bg-blue-500 hover:bg-blue-600 rounded-t-md transition-all relative"
                     >
-                      <span className="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] bg-purple-950 px-1.5 py-0.5 rounded border border-purple-500/40 text-purple-200 transition-opacity">
+                      <span className="opacity-0 group-hover:opacity-100 absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] bg-slate-900 px-1.5 py-0.5 rounded text-white font-semibold transition-opacity pointer-events-none">
                         {val}
                       </span>
                     </div>
-                    <span className="text-[10px] text-gray-500 font-mono">
+                    <span className="text-[10px] text-slate-500 font-mono">
                       {i * 2}:00
                     </span>
                   </div>
@@ -768,66 +765,66 @@ export default function Home() {
 
             {/* Referrers & Devices */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div className="p-4 rounded-xl bg-black/30 border border-purple-500/10 space-y-3">
-                <h4 className="text-xs font-semibold text-gray-300 flex items-center gap-2">
-                  <Globe className="w-3.5 h-3.5 text-purple-400" />
+              <div className="p-4.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-blue-600" />
                   Top Traffic Referrers
                 </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-gray-300">
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>Direct / Bookmarks</span>
-                    <span className="font-mono text-purple-300">54%</span>
+                    <span className="font-mono text-blue-700 font-bold">54%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-purple-500 h-1.5 rounded-full w-[54%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-blue-600 h-1.5 rounded-full w-[54%]" />
                   </div>
 
-                  <div className="flex justify-between text-gray-300">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>Twitter / X</span>
-                    <span className="font-mono text-purple-300">26%</span>
+                    <span className="font-mono text-blue-700 font-bold">26%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-purple-500 h-1.5 rounded-full w-[26%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-blue-600 h-1.5 rounded-full w-[26%]" />
                   </div>
 
-                  <div className="flex justify-between text-gray-300">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>GitHub / Developer Docs</span>
-                    <span className="font-mono text-purple-300">14%</span>
+                    <span className="font-mono text-blue-700 font-bold">14%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-purple-500 h-1.5 rounded-full w-[14%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-blue-600 h-1.5 rounded-full w-[14%]" />
                   </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-black/30 border border-purple-500/10 space-y-3">
-                <h4 className="text-xs font-semibold text-gray-300 flex items-center gap-2">
-                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
+              <div className="p-4.5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-indigo-600" />
                   Device & Client Breakdown
                 </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-gray-300">
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>Desktop (macOS & Windows)</span>
-                    <span className="font-mono text-indigo-300">68%</span>
+                    <span className="font-mono text-indigo-700 font-bold">68%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-indigo-500 h-1.5 rounded-full w-[68%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-indigo-600 h-1.5 rounded-full w-[68%]" />
                   </div>
 
-                  <div className="flex justify-between text-gray-300">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>Mobile (iOS & Android)</span>
-                    <span className="font-mono text-indigo-300">27%</span>
+                    <span className="font-mono text-indigo-700 font-bold">27%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-indigo-500 h-1.5 rounded-full w-[27%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-indigo-600 h-1.5 rounded-full w-[27%]" />
                   </div>
 
-                  <div className="flex justify-between text-gray-300">
+                  <div className="flex justify-between text-slate-700 font-medium">
                     <span>API / Automated Curl</span>
-                    <span className="font-mono text-indigo-300">5%</span>
+                    <span className="font-mono text-indigo-700 font-bold">5%</span>
                   </div>
-                  <div className="w-full bg-gray-800 rounded-full h-1.5">
-                    <div className="bg-indigo-500 h-1.5 rounded-full w-[5%]" />
+                  <div className="w-full bg-slate-200 rounded-full h-1.5">
+                    <div className="bg-indigo-600 h-1.5 rounded-full w-[5%]" />
                   </div>
                 </div>
               </div>
@@ -837,19 +834,19 @@ export default function Home() {
 
         {/* TAB 3: Security & SSRF Policy Inspector */}
         {activeTab === "security" && (
-          <div className="glass-panel p-6 rounded-2xl space-y-6">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Shield className="w-5 h-5 text-purple-400" />
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-blue-600" />
                 Live SSRF & URL Policy Inspector
               </h2>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 LinkOps validates every destination using operating-system level socket resolvers to block internal subnet attacks, loopbacks, and parser confusion exploits.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-purple-500/20 space-y-3">
-              <label className="block text-xs font-semibold text-gray-300">
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <label className="block text-xs font-bold text-slate-800">
                 Test Destination URL Against Policy:
               </label>
 
@@ -858,12 +855,12 @@ export default function Home() {
                   type="text"
                   value={secTestUrl}
                   onChange={(e) => setSecTestUrl(e.target.value)}
-                  className="flex-1 px-3.5 py-2.5 rounded-xl glass-input text-xs font-mono text-purple-200"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono text-slate-900 bg-white focus:outline-none focus:border-blue-600"
                 />
                 <button
                   type="button"
                   onClick={runSecurityTest}
-                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer shadow-xs"
                 >
                   Inspect URL
                 </button>
@@ -871,31 +868,31 @@ export default function Home() {
 
               {/* Sample payloads */}
               <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
-                <span className="text-gray-500">Quick adversarial samples:</span>
+                <span className="text-slate-500 font-medium">Quick adversarial samples:</span>
                 <button
                   onClick={() => setSecTestUrl("http://169.254.169.254/latest/meta-data")}
-                  className="text-purple-400 hover:underline cursor-pointer"
+                  className="text-blue-600 hover:underline cursor-pointer font-medium"
                 >
                   Cloud Metadata
                 </button>
-                <span className="text-gray-600">·</span>
+                <span className="text-slate-300">·</span>
                 <button
                   onClick={() => setSecTestUrl("http://127.0.0.1:5432")}
-                  className="text-purple-400 hover:underline cursor-pointer"
+                  className="text-blue-600 hover:underline cursor-pointer font-medium"
                 >
                   Localhost DB
                 </button>
-                <span className="text-gray-600">·</span>
+                <span className="text-slate-300">·</span>
                 <button
                   onClick={() => setSecTestUrl("https://good.com%40evil.example.com")}
-                  className="text-purple-400 hover:underline cursor-pointer"
+                  className="text-blue-600 hover:underline cursor-pointer font-medium"
                 >
                   Userinfo Confusion
                 </button>
-                <span className="text-gray-600">·</span>
+                <span className="text-slate-300">·</span>
                 <button
                   onClick={() => setSecTestUrl("https://github.com/HIMpcgithub3000/linklops")}
-                  className="text-emerald-400 hover:underline cursor-pointer"
+                  className="text-emerald-700 hover:underline cursor-pointer font-semibold"
                 >
                   Valid Public URL
                 </button>
@@ -906,20 +903,20 @@ export default function Home() {
                 <div
                   className={`mt-4 p-4 rounded-xl border flex items-start space-x-3 text-xs ${
                     secTestResult.status === "BLOCKED"
-                      ? "bg-red-500/10 border-red-500/30 text-red-200"
-                      : "bg-emerald-500/10 border-emerald-500/30 text-emerald-200"
+                      ? "bg-red-50 border-red-200 text-red-900"
+                      : "bg-emerald-50 border-emerald-200 text-emerald-900"
                   }`}
                 >
                   {secTestResult.status === "BLOCKED" ? (
-                    <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
                   ) : (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                   )}
                   <div>
                     <span className="font-bold text-sm block">
                       {secTestResult.status === "BLOCKED" ? "POLICY VIOLATION DETECTED" : "URL VERIFIED SAFE"}
                     </span>
-                    <p className="mt-1 text-gray-300">{secTestResult.message}</p>
+                    <p className="mt-1 text-slate-700">{secTestResult.message}</p>
                   </div>
                 </div>
               )}
@@ -927,31 +924,31 @@ export default function Home() {
 
             {/* Standing Controls Table */}
             <div className="space-y-3 pt-2">
-              <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 10 Automated Architectural Controls
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-lg bg-black/20 border border-purple-500/10">
-                  <span className="font-mono text-purple-300 font-semibold">check_rls.py</span>
-                  <p className="text-gray-400 text-[11px] mt-0.5">
+                <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="font-mono text-blue-700 font-bold">check_rls.py</span>
+                  <p className="text-slate-600 text-[11px] mt-0.5">
                     Asserts PostgreSQL RLS is enabled, forced, and dual-clause (USING + WITH CHECK).
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-black/20 border border-purple-500/10">
-                  <span className="font-mono text-purple-300 font-semibold">check_url_policy.py</span>
-                  <p className="text-gray-400 text-[11px] mt-0.5">
+                <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="font-mono text-blue-700 font-bold">check_url_policy.py</span>
+                  <p className="text-slate-600 text-[11px] mt-0.5">
                     Validates 43 adversarial attack vectors against SSRF and IP parsers.
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-black/20 border border-purple-500/10">
-                  <span className="font-mono text-purple-300 font-semibold">check_log_pii.py</span>
-                  <p className="text-gray-400 text-[11px] mt-0.5">
+                <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="font-mono text-blue-700 font-bold">check_log_pii.py</span>
+                  <p className="text-slate-600 text-[11px] mt-0.5">
                     Scans log outputs and stack traces to guarantee zero email or secret leakage.
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-black/20 border border-purple-500/10">
-                  <span className="font-mono text-purple-300 font-semibold">check_analytics_pipeline.py</span>
-                  <p className="text-gray-400 text-[11px] mt-0.5">
+                <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="font-mono text-blue-700 font-bold">check_analytics_pipeline.py</span>
+                  <p className="text-slate-600 text-[11px] mt-0.5">
                     Guarantees queue agreement, salted IP hashes, and single-statement rollup idempotency.
                   </p>
                 </div>
@@ -962,13 +959,13 @@ export default function Home() {
 
         {/* TAB 4: API Playground */}
         {activeTab === "api" && (
-          <div className="glass-panel p-6 rounded-2xl space-y-6">
+          <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs space-y-6">
             <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Terminal className="w-5 h-5 text-purple-400" />
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-blue-600" />
                 Developer API Playground
               </h2>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 Interact with the LinkOps programmatic endpoints using standard cURL commands.
               </p>
             </div>
@@ -976,7 +973,7 @@ export default function Home() {
             <div className="space-y-4">
               {/* Create Link Command */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-300">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                   <span>1. Create a Short URL via API</span>
                   <button
                     onClick={() =>
@@ -985,13 +982,13 @@ export default function Home() {
                         "curl-create"
                       )
                     }
-                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer font-semibold"
                   >
                     {copiedId === "curl-create" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedId === "curl-create" ? "Copied" : "Copy cURL"}</span>
                   </button>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-black/60 border border-purple-500/20 text-xs font-mono text-purple-200 overflow-x-auto">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono overflow-x-auto shadow-inner">
 {`curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/links \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1003,7 +1000,7 @@ export default function Home() {
 
               {/* Redirect Command */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-300">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                   <span>2. Trigger Edge 302 Redirect</span>
                   <button
                     onClick={() =>
@@ -1012,16 +1009,16 @@ export default function Home() {
                         "curl-redirect"
                       )
                     }
-                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer font-semibold"
                   >
                     {copiedId === "curl-redirect" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedId === "curl-redirect" ? "Copied" : "Copy cURL"}</span>
                   </button>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-black/60 border border-purple-500/20 text-xs font-mono text-purple-200 overflow-x-auto">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono overflow-x-auto shadow-inner">
 {`curl -I ${typeof window !== "undefined" ? window.location.origin : ""}/r/linkops
 
-# HTTP/1.1 302 Found
+# HTTP/2 302 Found
 # Location: https://github.com/HIMpcgithub3000/linklops
 # X-LinkOps-Engine: Edge-Redirect-v1`}
                 </pre>
@@ -1029,7 +1026,7 @@ export default function Home() {
 
               {/* Health Check Command */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold text-gray-300">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                   <span>3. Query System Health & Telemetry</span>
                   <button
                     onClick={() =>
@@ -1038,13 +1035,13 @@ export default function Home() {
                         "curl-health"
                       )
                     }
-                    className="text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer font-semibold"
                   >
                     {copiedId === "curl-health" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedId === "curl-health" ? "Copied" : "Copy cURL"}</span>
                   </button>
                 </div>
-                <pre className="p-3.5 rounded-xl bg-black/60 border border-purple-500/20 text-xs font-mono text-purple-200 overflow-x-auto">
+                <pre className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs font-mono overflow-x-auto shadow-inner">
 {`curl -s ${typeof window !== "undefined" ? window.location.origin : ""}/health`}
                 </pre>
               </div>
@@ -1055,21 +1052,21 @@ export default function Home() {
 
       {/* QR Code Modal */}
       {qrModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="glass-panel p-6 rounded-2xl max-w-sm w-full space-y-4 border border-purple-500/30 purple-glow relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white p-6 rounded-2xl max-w-sm w-full space-y-4 border border-slate-200 shadow-xl relative">
             <button
               onClick={() => setQrModal({ open: false, url: "", code: "", dataUrl: "" })}
-              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="text-center space-y-1">
-              <h3 className="font-bold text-lg text-white">QR Code for /r/{qrModal.code}</h3>
-              <p className="text-xs text-gray-400 break-all">{qrModal.url}</p>
+              <h3 className="font-bold text-lg text-slate-900">QR Code for /r/{qrModal.code}</h3>
+              <p className="text-xs text-slate-500 break-all">{qrModal.url}</p>
             </div>
 
-            <div className="bg-white p-4 rounded-xl flex items-center justify-center shadow-inner">
+            <div className="bg-slate-50 p-4 rounded-xl flex items-center justify-center border border-slate-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrModal.dataUrl} alt="Short link QR code" className="w-60 h-60" />
             </div>
@@ -1078,7 +1075,7 @@ export default function Home() {
               <a
                 href={qrModal.dataUrl}
                 download={`qr-${qrModal.code}.png`}
-                className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all"
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-xs"
               >
                 <Download className="w-4 h-4" />
                 <span>Download PNG</span>
@@ -1086,7 +1083,7 @@ export default function Home() {
 
               <button
                 onClick={() => handleCopy(qrModal.url, "qr-copy")}
-                className="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-medium"
+                className="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold border border-slate-200"
               >
                 {copiedId === "qr-copy" ? "Copied!" : "Copy Link"}
               </button>
@@ -1096,10 +1093,10 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-purple-500/10 py-8 bg-[#05020A]/90 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500">
+      <footer className="border-t border-slate-200 py-8 bg-white mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center space-x-2">
-            <span className="font-semibold text-gray-300">LinkOps Enterprise Platform</span>
+            <span className="font-semibold text-slate-800">LinkOps Enterprise Platform</span>
             <span>·</span>
             <span>FastAPI · PostgreSQL 16 RLS · Redis 7 · Next.js</span>
           </div>
@@ -1109,7 +1106,7 @@ export default function Home() {
               href="https://github.com/HIMpcgithub3000/linklops"
               target="_blank"
               rel="noreferrer"
-              className="text-purple-400 hover:text-purple-300 hover:underline"
+              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
             >
               GitHub Repository
             </a>

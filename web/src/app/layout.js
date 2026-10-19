@@ -9,22 +9,20 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#08040F] text-gray-100 min-h-screen selection:bg-purple-500/30 selection:text-purple-200">
-        {/* Background Ambient Glows */}
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-purple-700/15 rounded-full blur-[140px]" />
-          <div className="absolute top-1/3 -left-40 w-[600px] h-[600px] bg-indigo-700/10 rounded-full blur-[160px]" />
-          <div className="absolute bottom-10 right-0 w-[500px] h-[500px] bg-fuchsia-700/10 rounded-full blur-[150px]" />
-          <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
+      <body className="bg-slate-50 text-slate-900 min-h-screen selection:bg-blue-100 selection:text-blue-900 antialiased">
+        {/* Subtle Background Pattern */}
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute inset-0 bg-dot-pattern opacity-60" />
+          <div className="absolute top-0 inset-x-0 h-96 bg-gradient-to-b from-blue-50/40 via-transparent to-transparent pointer-events-none" />
         </div>
 
         <div className="relative z-10 flex flex-col min-h-screen">
