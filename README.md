@@ -51,8 +51,7 @@ LinkOps is a **hardened, high-performance link shortening and click-stream analy
 
 ## System Architecture & Explainability Blueprint
 
-> **[▶ Watch 35s Architectural Blueprint Motion Walkthrough (MP4)](docs/media/linklops_architecture_blueprint.mp4)**  
-> *Mathematical decomposition: Base56 46-Bit Entropy Minter, Redis RAM Caching, Atomic Invalidation, Singleflight Mutex & 1-Query/s Stampede Cap.*
+> **[▶ Watch Video](docs/media/linklops_architecture_blueprint.mp4)**
 
 <p align="center">
   <a href="docs/media/linklops_architecture_blueprint.mp4">
