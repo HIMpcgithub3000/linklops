@@ -2,6 +2,7 @@
 
 > **High-throughput, multi-tenant link shortening, redirection, and click-stream analytics engine built with PostgreSQL Row-Level Security (RLS), Redis cache-aside, reliable queue workers, and sub-millisecond redirect latency.**
 
+[![Live App](https://img.shields.io/badge/Live_App-web--lyart--sigma--21.vercel.app-00C7B7?style=flat-square&logo=vercel)](https://web-lyart-sigma-21.vercel.app/)
 [![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI_0.141-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_RLS-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org)
@@ -69,7 +70,9 @@ LinkOps is a **hardened, high-performance link shortening and click-stream analy
 
 ## Live Demo & Request Flow
 
-> **[▶ Interactive Swagger Documentation](http://localhost:8000/docs)** *(FastAPI OpenAPI Console)*
+> 🌐 **[▶ Live Web Application](https://web-lyart-sigma-21.vercel.app/)** *(Next.js Edge Dashboard & Analytics)*  
+> 📖 **[Interactive Swagger Documentation](http://localhost:8000/docs)** *(FastAPI OpenAPI Console)*
+
 
 **Demonstration Flow (3 Minutes):**
 1. **Mint Tenant API Key** → Run `.venv/bin/python scripts/mint_key.py m04-tenant-a` to generate a secure `<key_id>.<secret>` credential.

@@ -123,9 +123,10 @@ TTL_JITTER_SECONDS = 10
 
 # How long a request that lost the fill race will wait for the winner before
 # giving up and reading the database itself. Bounded hard: a redirect must never
-# wait on a cache. 50ms is longer than a local fill and far shorter than any
-# timeout a user would notice.
-FILL_WAIT_SECONDS = 0.05
+# wait on a cache. 250ms is longer than a database fill and far shorter than any
+# timeout a user would notice, while ensuring reliable stampede collapse even
+# under virtualized CI scheduling jitter.
+FILL_WAIT_SECONDS = 0.25
 FILL_POLL_SECONDS = 0.005
 FILL_LOCK_TTL_SECONDS = 5
 
@@ -276,4 +277,11 @@ def fill_once(code: str, load):
         filled = get_redirect_target(code)
         if filled is not None:
             return filled
+
+    # Final check before falling through to an uncoordinated database load
+    filled = get_redirect_target(code)
+    if filled is not None:
+        return filled
+
     return load()
+
