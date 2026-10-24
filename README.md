@@ -49,6 +49,25 @@ LinkOps is a **hardened, high-performance link shortening and click-stream analy
 
 ---
 
+## System Architecture & Explainability Blueprint
+
+> **[▶ Watch 35s Architectural Blueprint Motion Walkthrough (MP4)](docs/media/linklops_architecture_blueprint.mp4)**  
+> *Mathematical decomposition: Base56 46-Bit Entropy Minter, Redis RAM Caching, Atomic Invalidation, Singleflight Mutex & 1-Query/s Stampede Cap.*
+
+<p align="center">
+  <a href="docs/media/linklops_architecture_blueprint.mp4">
+    <img src="docs/media/linklops_architecture_preview.gif" alt="LinkOps Architectural Blueprint Animation" width="100%" />
+  </a>
+</p>
+
+### Blueprint Technical Stages:
+1. **Base56 46-Bit Entropy Tokenizer**: Strips lookalike glyphs (`0/O`, `1/l/I`), enforcing `ck_links_code_entropy >= 7` with 1.33 trillion collision-free combinations per namespace.
+2. **Sub-Millisecond Cache-Aside Plane**: 10,000 concurrent redirect requests hit Redis RAM directly, bypassing PostgreSQL to achieve `<2ms` p99 latency.
+3. **Atomic SQL Invalidation**: Link updates commit to PostgreSQL first, immediately followed by pipeline eviction (`DEL redirect:{code}`) to eliminate stale reads.
+4. **Singleflight Request Coalescing (`fill_once`)**: Distributed mutex gate (`SET lock:redirect:{code} 1 NX EX 5s`) throttles database lookups to exactly 1 query/sec during high-traffic cache misses, fanning out the single resolution promise to all waiting clients with 0% DB thread exhaustion.
+
+---
+
 ## Live Demo & Request Flow
 
 > **[▶ Interactive Swagger Documentation](http://localhost:8000/docs)** *(FastAPI OpenAPI Console)*
